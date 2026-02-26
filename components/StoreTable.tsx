@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { toCSV, downloadCSV, downloadXLSX } from "@/lib/export";
 
@@ -21,20 +21,52 @@ function fmtRp(n: number) {
   return "Rp " + Math.round(n).toLocaleString("en-US");
 }
 
+type SortKey = keyof StoreRow;
+
+function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; sortDir: "asc" | "desc" }) {
+  if (col !== sortKey) return <span className="ml-1 opacity-25 text-[9px]">⇅</span>;
+  return <span className="ml-1 text-[#00E273] text-[9px]">{sortDir === "asc" ? "↑" : "↓"}</span>;
+}
+
 const ROWS_PER_PAGE = 10;
 
 export default function StoreTable({ stores, loading }: { stores?: StoreRow[]; loading?: boolean }) {
   const [page, setPage] = useState(1);
+  const [sortKey, setSortKey] = useState<SortKey>("revenue");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   // Reset page when stores data changes (e.g. after filtering)
   useEffect(() => { setPage(1); }, [stores]);
 
-  const totalRows = stores?.length ?? 0;
-  const totalPages = Math.ceil(totalRows / ROWS_PER_PAGE);
-  const currentRows = stores?.slice((page - 1) * ROWS_PER_PAGE, page * ROWS_PER_PAGE) ?? [];
+  const handleSort = (key: SortKey) => {
+    if (key === sortKey) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir(key === "toko" || key === "branch" ? "asc" : "desc");
+    }
+    setPage(1);
+  };
 
-  const thClass = "text-left px-3 py-2.5 text-[9px] font-bold text-muted-foreground uppercase tracking-[0.12em]";
-  const thRight = `text-right px-3 py-2.5 text-[9px] font-bold text-muted-foreground uppercase tracking-[0.12em]`;
+  const sortedStores = useMemo(() => {
+    if (!stores) return [];
+    return [...stores].sort((a, b) => {
+      const av = a[sortKey], bv = b[sortKey];
+      const cmp = typeof av === "string"
+        ? av.localeCompare(bv as string)
+        : (av as number) - (bv as number);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [stores, sortKey, sortDir]);
+
+  const totalRows = sortedStores.length;
+  const totalPages = Math.ceil(totalRows / ROWS_PER_PAGE);
+  const currentRows = sortedStores.slice((page - 1) * ROWS_PER_PAGE, page * ROWS_PER_PAGE);
+
+  const thBase = "px-3 py-2.5 text-[9px] font-bold text-muted-foreground uppercase tracking-[0.12em] cursor-pointer select-none hover:text-foreground transition-colors";
+  const thLeft = `text-left ${thBase}`;
+  const thRight = `text-right ${thBase}`;
+  const si = (key: SortKey) => <SortIcon col={key} sortKey={sortKey} sortDir={sortDir} />;
 
   return (
     <div className="bg-card border border-border rounded-sm overflow-hidden flex flex-col shadow-sm h-full">
@@ -48,7 +80,7 @@ export default function StoreTable({ stores, loading }: { stores?: StoreRow[]; l
                 onClick={() => {
                   const headers = ["#", "Store", "Branch", "Qty", "Revenue", "Txn", "ATU", "ASP", "ATV"];
                   const keys = ["rank", "toko", "branch", "pairs", "revenue", "transactions", "atu", "asp", "atv"];
-                  const rows: Record<string, unknown>[] = (stores ?? []).map((s, idx) => ({
+                  const rows: Record<string, unknown>[] = sortedStores.map((s, idx) => ({
                     rank: idx + 1, toko: s.toko, branch: s.branch, pairs: s.pairs,
                     revenue: s.revenue, transactions: s.transactions,
                     atu: Number(s.atu.toFixed(1)), asp: Math.round(s.asp), atv: Math.round(s.atv),
@@ -64,7 +96,7 @@ export default function StoreTable({ stores, loading }: { stores?: StoreRow[]; l
                 onClick={() => {
                   const headers = ["#", "Store", "Branch", "Qty", "Revenue", "Txn", "ATU", "ASP", "ATV"];
                   const keys = ["rank", "toko", "branch", "pairs", "revenue", "transactions", "atu", "asp", "atv"];
-                  const rows: Record<string, unknown>[] = (stores ?? []).map((s, idx) => ({
+                  const rows: Record<string, unknown>[] = sortedStores.map((s, idx) => ({
                     rank: idx + 1, toko: s.toko, branch: s.branch, pairs: s.pairs,
                     revenue: s.revenue, transactions: s.transactions,
                     atu: Number(s.atu.toFixed(1)), asp: Math.round(s.asp), atv: Math.round(s.atv),
@@ -88,15 +120,15 @@ export default function StoreTable({ stores, loading }: { stores?: StoreRow[]; l
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-border bg-muted/30">
-              <th className={`text-center px-2 py-2.5 text-[9px] font-bold text-muted-foreground uppercase tracking-[0.12em] w-8`}>#</th>
-              <th className={thClass}>Store</th>
-              <th className={thClass}>Branch</th>
-              <th className={thRight}>Qty</th>
-              <th className={thRight}>Revenue</th>
-              <th className={thRight}>Txn</th>
-              <th className={thRight}>ATU</th>
-              <th className={thRight}>ASP</th>
-              <th className={thRight}>ATV</th>
+              <th className="text-center px-2 py-2.5 text-[9px] font-bold text-muted-foreground uppercase tracking-[0.12em] w-8">#</th>
+              <th className={thLeft} onClick={() => handleSort("toko")}>Store{si("toko")}</th>
+              <th className={thLeft} onClick={() => handleSort("branch")}>Branch{si("branch")}</th>
+              <th className={thRight} onClick={() => handleSort("pairs")}>Qty{si("pairs")}</th>
+              <th className={thRight} onClick={() => handleSort("revenue")}>Revenue{si("revenue")}</th>
+              <th className={thRight} onClick={() => handleSort("transactions")}>Txn{si("transactions")}</th>
+              <th className={thRight} onClick={() => handleSort("atu")}>ATU{si("atu")}</th>
+              <th className={thRight} onClick={() => handleSort("asp")}>ASP{si("asp")}</th>
+              <th className={thRight} onClick={() => handleSort("atv")}>ATV{si("atv")}</th>
             </tr>
           </thead>
           <tbody>

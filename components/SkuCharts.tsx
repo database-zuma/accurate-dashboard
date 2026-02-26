@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useMemo } from "react";
+
 import { useSearchParams } from "next/navigation";
 import {
   Chart as ChartJS,
@@ -290,6 +292,13 @@ function BarChart({
   );
 }
 
+type RankSortKey = "kode_mix" | "gender" | "series" | "color" | "pairs" | "revenue" | "asp";
+
+function SortIcon({ col, sortKey, sortDir }: { col: RankSortKey; sortKey: RankSortKey; sortDir: "asc" | "desc" }) {
+  if (col !== sortKey) return <span className="ml-1 opacity-25 text-[9px]">⇅</span>;
+  return <span className="ml-1 text-[#00E273] text-[9px]">{sortDir === "asc" ? "↑" : "↓"}</span>;
+}
+
 function RankTable({
   rows,
   grandTotals,
@@ -297,11 +306,48 @@ function RankTable({
   rows: { article: string; kode_mix: string; gender?: string; series?: string; color?: string; pairs: number; revenue: number }[];
   grandTotals?: { pairs: number; revenue: number };
 }) {
+  const [sortKey, setSortKey] = useState<RankSortKey>("pairs");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  const handleSort = (key: RankSortKey) => {
+    if (key === sortKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      const textKeys: RankSortKey[] = ["kode_mix", "gender", "series", "color"];
+      setSortDir(textKeys.includes(key) ? "asc" : "desc");
+    }
+  };
+
+  const sortedRows = useMemo(
+    () =>
+      [...rows].sort((a, b) => {
+        let av: number | string;
+        let bv: number | string;
+        if (sortKey === "asp") {
+          av = a.pairs > 0 ? a.revenue / a.pairs : 0;
+          bv = b.pairs > 0 ? b.revenue / b.pairs : 0;
+        } else if (sortKey === "kode_mix") {
+          av = a.kode_mix || a.article || "";
+          bv = b.kode_mix || b.article || "";
+        } else {
+          av = (a as Record<string, unknown>)[sortKey] as number | string ?? "";
+          bv = (b as Record<string, unknown>)[sortKey] as number | string ?? "";
+        }
+        const cmp =
+          typeof av === "string"
+            ? av.localeCompare(bv as string)
+            : (av as number) - (bv as number);
+        return sortDir === "asc" ? cmp : -cmp;
+      }),
+    [rows, sortKey, sortDir]
+  );
+
   const exportHeaders = ["#", "Kode Mix", "Gender", "Series", "Color", "Qty Sold", "Revenue", "ASP"];
   const exportKeys = ["rank", "kode_mix", "gender", "series", "color", "pairs", "revenue", "asp"];
 
   const getExportRows = (): Record<string, unknown>[] =>
-    rows.map((r, idx) => ({
+    sortedRows.map((r, idx) => ({
       rank: idx + 1,
       kode_mix: r.kode_mix || r.article || "",
       gender: r.gender || "",
@@ -321,11 +367,15 @@ function RankTable({
     void downloadXLSX(exportHeaders, getExportRows(), exportKeys, "rank_by_article.xlsx");
   };
 
+  const thBase =
+    "px-3 py-2 text-[9px] font-bold text-muted-foreground uppercase tracking-wider cursor-pointer select-none hover:text-foreground transition-colors";
+  const si = (key: RankSortKey) => <SortIcon col={key} sortKey={sortKey} sortDir={sortDir} />;
+
   return (
     <ChartCard
       title="Rank by Article"
       actions={
-        rows.length > 0 ? (
+        sortedRows.length > 0 ? (
           <div className="flex gap-1">
             <button
               type="button"
@@ -350,17 +400,17 @@ function RankTable({
           <thead className="sticky top-0 bg-card">
             <tr className="border-b border-border">
               <th className="text-left px-3 py-2 text-[9px] font-bold text-muted-foreground uppercase tracking-wider w-10">#</th>
-              <th className="text-left px-3 py-2 text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Kode Mix</th>
-              <th className="text-left px-3 py-2 text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Gender</th>
-              <th className="text-left px-3 py-2 text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Series</th>
-              <th className="text-left px-3 py-2 text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Color</th>
-              <th className="text-right px-3 py-2 text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Qty Sold</th>
-              <th className="text-right px-3 py-2 text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Revenue</th>
-              <th className="text-right px-3 py-2 text-[9px] font-bold text-muted-foreground uppercase tracking-wider">ASP</th>
+              <th className={`text-left ${thBase}`} onClick={() => handleSort("kode_mix")}>Kode Mix{si("kode_mix")}</th>
+              <th className={`text-left ${thBase}`} onClick={() => handleSort("gender")}>Gender{si("gender")}</th>
+              <th className={`text-left ${thBase}`} onClick={() => handleSort("series")}>Series{si("series")}</th>
+              <th className={`text-left ${thBase}`} onClick={() => handleSort("color")}>Color{si("color")}</th>
+              <th className={`text-right ${thBase}`} onClick={() => handleSort("pairs")}>Qty Sold{si("pairs")}</th>
+              <th className={`text-right ${thBase}`} onClick={() => handleSort("revenue")}>Revenue{si("revenue")}</th>
+              <th className={`text-right ${thBase}`} onClick={() => handleSort("asp")}>ASP{si("asp")}</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, idx) => {
+            {sortedRows.map((r, idx) => {
               const asp = r.pairs > 0 ? r.revenue / r.pairs : 0;
               return (
                 <tr key={`${r.kode_mix || r.article}-${r.gender || ""}-${r.series || ""}-${r.color || ""}-${String(idx)}`} className="border-b border-border/40 hover:bg-muted/20 transition-colors">
@@ -375,13 +425,13 @@ function RankTable({
                 </tr>
               );
             })}
-            {rows.length === 0 && (
+            {sortedRows.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">No data</td>
               </tr>
             )}
           </tbody>
-          {rows.length > 0 && (() => {
+          {sortedRows.length > 0 && (() => {
             const totQty = grandTotals?.pairs ?? rows.reduce((s, r) => s + r.pairs, 0);
             const totRev = grandTotals?.revenue ?? rows.reduce((s, r) => s + r.revenue, 0);
             const avgAsp = totQty > 0 ? totRev / totQty : 0;

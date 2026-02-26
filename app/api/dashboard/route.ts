@@ -158,7 +158,7 @@ export async function GET(req: NextRequest) {
       storeVals.push(...customer);
     }
 
-    for (const [param, col] of [["series","series"],["gender","gender"],["tier","tier"],["color","color"],["tipe","tipe"]] as [string,string][]) {
+    for (const [param, col] of [["series","series"],["gender","gender"],["tier","tier"],["color","color"],["tipe","tipe"],["version","version"]] as [string,string][]) {
       const fv = parseMulti(sp, param);
       if (!fv.length) continue;
       const phs = fv.map(() => `$${si++}`).join(", ");
