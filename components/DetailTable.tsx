@@ -62,7 +62,7 @@ export default function DetailTable({ mode }: { mode: Mode }) {
   }, [searchParams]);
 
   const detailParams = new URLSearchParams(searchParams.toString());
-  if (!detailParams.has("from")) detailParams.set("from", "2024-01-01");
+  if (!detailParams.has("from")) detailParams.set("from", `${new Date().getFullYear()}-01-01`);
   if (!detailParams.has("to")) detailParams.set("to", new Date().toISOString().substring(0, 10));
   const apiUrl = `/api/detail?v=2&mode=${mode}&${detailParams.toString()}`;
 

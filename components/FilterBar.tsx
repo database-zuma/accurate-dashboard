@@ -199,7 +199,7 @@ export default function FilterBar() {
   const [search, setSearch] = useState(searchParams.get("q") || "");
 
   const today = new Date().toISOString().substring(0, 10);
-  const fromVal = searchParams.get("from") || "2024-01-01";
+  const fromVal = searchParams.get("from") || `${new Date().getFullYear()}-01-01`;
   const toVal = searchParams.get("to") || today;
 
   const filterQs = searchParams.toString();

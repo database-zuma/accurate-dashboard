@@ -72,7 +72,7 @@ export default function HomeInner() {
       
       // Ensure date range is set for detail tabs
       if ((tab === "detail" || tab === "detail-size") && !params.has("from")) {
-        params.set("from", "2024-01-01");
+        params.set("from", `${new Date().getFullYear()}-01-01`);
       }
       if ((tab === "detail" || tab === "detail-size") && !params.has("to")) {
         const today = new Date().toISOString().substring(0, 10);
@@ -100,7 +100,7 @@ export default function HomeInner() {
   );
 
   const apiParams = new URLSearchParams(searchParams.toString());
-  if (!apiParams.has("from")) apiParams.set("from", "2024-01-01");
+  if (!apiParams.has("from")) apiParams.set("from", `${new Date().getFullYear()}-01-01`);
   if (!apiParams.has("to")) apiParams.set("to", new Date().toISOString().substring(0, 10));
   const dashboardUrl = `/api/dashboard?v=3&${apiParams.toString()}`;
   const { data, isLoading } = useSWR<DashboardData>(dashboardUrl, fetcher, {
