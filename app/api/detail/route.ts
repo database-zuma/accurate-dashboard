@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
                 sort === "tier" ? `COALESCE(NULLIF(d.tier, 'Unknown'), 'Unknown') ${dir}` :
                 `${sort} ${dir} NULLS LAST`;
     } else {
-      groupBy = `d.toko, d.kode, d.kode_besar, d.article,
+      groupBy = `d.toko, d.kode, d.article,
                  COALESCE(NULLIF(d.kodemix_gender, ''), 'Unknown'),
                  COALESCE(NULLIF(d.kodemix_series, ''), 'Unknown'),
                  COALESCE(NULLIF(d.kodemix_color, ''), 'Unknown'),
@@ -124,7 +124,6 @@ export async function GET(req: NextRequest) {
       
       selectCols = `d.toko,
                     d.kode,
-                    d.kode_besar,
                     d.article,
                     COALESCE(NULLIF(d.kodemix_gender, ''), 'Unknown') as gender,
                     COALESCE(NULLIF(d.kodemix_series, ''), 'Unknown') as series,
