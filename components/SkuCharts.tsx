@@ -126,7 +126,8 @@ function PieChart({
   const total = values.reduce((s, v) => s + v, 0);
   const activeIdx = activeValue ? labels.indexOf(activeValue) : -1;
 
-  const bgColors = PIE_PALETTE.slice(0, labels.length).map((color, i) => {
+  const bgColors = labels.map((_, i) => {
+    const color = PIE_PALETTE[i % PIE_PALETTE.length];
     if (activeIdx >= 0 && i !== activeIdx) return hexToRgba(color, 0.4);
     return color;
   });
@@ -362,7 +363,7 @@ function RankTable({
             {rows.map((r, idx) => {
               const asp = r.pairs > 0 ? r.revenue / r.pairs : 0;
               return (
-                <tr key={r.kode_mix || `rank-${String(idx)}`} className="border-b border-border/40 hover:bg-muted/20 transition-colors">
+                <tr key={`${r.kode_mix || r.article}-${r.gender || ""}-${r.series || ""}-${r.color || ""}-${String(idx)}`} className="border-b border-border/40 hover:bg-muted/20 transition-colors">
                   <td className="px-3 py-2 text-muted-foreground tabular-nums">{idx + 1}</td>
                   <td className="px-3 py-2 font-medium max-w-[180px] truncate">{r.kode_mix || r.article || "—"}</td>
                   <td className="px-3 py-2 text-muted-foreground">{r.gender || "—"}</td>

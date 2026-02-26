@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { toCSV, downloadCSV, downloadXLSX } from "@/lib/export";
 
@@ -25,6 +25,9 @@ const ROWS_PER_PAGE = 10;
 
 export default function StoreTable({ stores, loading }: { stores?: StoreRow[]; loading?: boolean }) {
   const [page, setPage] = useState(1);
+
+  // Reset page when stores data changes (e.g. after filtering)
+  useEffect(() => { setPage(1); }, [stores]);
 
   const totalRows = stores?.length ?? 0;
   const totalPages = Math.ceil(totalRows / ROWS_PER_PAGE);

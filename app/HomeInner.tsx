@@ -69,6 +69,7 @@ export default function HomeInner() {
     (tab: string) => {
       const params = new URLSearchParams(searchParams.toString());
       params.set("tab", tab);
+      params.delete("page"); // Reset page when switching tabs
       
       // Ensure date range is set for detail tabs
       if ((tab === "detail" || tab === "detail-size") && !params.has("from")) {
@@ -79,7 +80,7 @@ export default function HomeInner() {
         params.set("to", today);
       }
       
-      router.push(`/?${params.toString()}`);
+      router.push(`/?${params.toString()}`)
     },
     [router, searchParams]
   );

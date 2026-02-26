@@ -72,7 +72,8 @@ export default function BranchPieChart({
   const labels = data.map((d) => d.branch || "Event");
   const activeIdx = activeBranch ? labels.indexOf(activeBranch) : -1;
 
-  const bgColors = BRANCH_COLORS.slice(0, data.length).map((color, i) => {
+  const bgColors = data.map((_, i) => {
+    const color = BRANCH_COLORS[i % BRANCH_COLORS.length];
     if (activeIdx >= 0 && i !== activeIdx) return hexToRgba(color, 0.4);
     return color;
   });

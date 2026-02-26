@@ -246,6 +246,20 @@ export default function FilterBar() {
     [applySearch]
   );
 
+  // Debounced search: apply 400ms after user stops typing
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSearchChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value;
+      setSearch(val);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        applySearch(val);
+      }, 400);
+    },
+    [applySearch]
+  );
+
   const clearSearch = useCallback(() => {
     setSearch("");
     applySearch("");
@@ -349,7 +363,7 @@ export default function FilterBar() {
           type="text"
           placeholder="Search kode, article, kode besar... (Enter to search)"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={handleSearchChange}
           onKeyDown={handleKeyDown}
           className="pl-9 h-8 text-xs bg-card w-full rounded-sm"
         />

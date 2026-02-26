@@ -119,6 +119,7 @@ export default function DetailTable({ mode }: { mode: Mode }) {
       params.set("mode", mode);
       const res = await fetch(`/api/detail?${params}`);
       const json = await res.json();
+      if (!json.rows || !Array.isArray(json.rows)) throw new Error("Export failed: invalid response");
       const rows = json.rows as Record<string, unknown>[];
       const headers = mode === "kode_besar" ? KB_HEADERS : KODE_HEADERS;
       const keys = mode === "kode_besar" ? KB_KEYS : KODE_KEYS;
