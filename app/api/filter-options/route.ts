@@ -90,6 +90,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (e) {
     console.error("filter-options error:", e);
-    return NextResponse.json({ error: "DB error" }, { status: 500 });
+    return NextResponse.json({ error: "DB error", detail: String(e) }, { status: 500 });
   }
 }
