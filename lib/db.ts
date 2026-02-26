@@ -6,8 +6,8 @@ export const pool =
   globalForPg.pool ??
   new Pool({
     connectionString: process.env.DATABASE_URL,
-    max: 20,
-    idleTimeoutMillis: 30000,
+    max: 5,
+    idleTimeoutMillis: 10000,
     connectionTimeoutMillis: 10000,
   });
 
