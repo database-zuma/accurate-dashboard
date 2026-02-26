@@ -46,7 +46,7 @@ function buildMvFilters(
   }
 
   if (sp.get("excludeNonSku") === "1") {
-    conds.push(`(${p}produk IS NULL OR (${p}produk NOT ILIKE '%shopbag%' AND ${p}produk NOT ILIKE '%paperbag%' AND ${p}produk NOT ILIKE '%paper bag%' AND ${p}produk NOT ILIKE '%shopping bag%' AND ${p}produk NOT ILIKE '%inbox%' AND ${p}produk NOT ILIKE '%box%' AND ${p}produk NOT ILIKE '%gwp%' AND ${p}produk NOT ILIKE '%gift%' AND ${p}produk NOT ILIKE '%voucher%' AND ${p}produk NOT ILIKE '%membership%' AND ${p}produk NOT ILIKE '%hanger%'))`);
+    conds.push(`${p}is_non_sku = FALSE`);
   }
 
   return { conds, nextIdx: i };
@@ -164,6 +164,10 @@ export async function GET(req: NextRequest) {
       const phs = fv.map(() => `$${si++}`).join(", ");
       storeD.push(`d.${col} IN (${phs})`);
       storeVals.push(...fv);
+    }
+
+    if (sp.get("excludeNonSku") === "1") {
+      storeD.push(`d.is_non_sku = FALSE`);
     }
 
     const storeDWhere = storeD.length ? `WHERE ${storeD.join(" AND ")}` : "";
@@ -361,6 +365,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (e) {
     console.error("dashboard error:", e);
-    return NextResponse.json({ error: "DB error", detail: String(e) }, { status: 500 });
+    return NextResponse.json({ error: "DB error" }, { status: 500 });
   }
 }
