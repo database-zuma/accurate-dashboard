@@ -88,6 +88,13 @@ function buildTxnFilters(
     vals.push(...entity);
   }
 
+  const customer = parseMulti(sp, "customer");
+  if (customer.length) {
+    const phs = customer.map(() => `$${i++}`).join(", ");
+    conds.push(`${p}customer IN (${phs})`);
+    vals.push(...customer);
+  }
+
   return { conds, nextIdx: i };
 }
 
@@ -147,7 +154,7 @@ export async function GET(req: NextRequest) {
     const customer = parseMulti(sp, "customer");
     if (customer.length) {
       const phs = customer.map(() => `$${si++}`).join(", ");
-      storeD.push(`d.customer IN (${phs})`);
+      storeD.push(`d.customer IN (${phs})`); storeT.push(`t.customer IN (${phs})`);
       storeVals.push(...customer);
     }
 
