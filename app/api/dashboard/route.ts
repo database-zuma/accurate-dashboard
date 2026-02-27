@@ -51,7 +51,7 @@ function buildMvFilters(
 
   const q = sp.get("q");
   if (q) {
-    conds.push(`(${p}kode ILIKE $${i} OR ${p}kode_mix ILIKE $${i} OR ${p}article ILIKE $${i})`);
+    conds.push(`(${p}kode ILIKE $${i} OR ${p}kode_mix ILIKE $${i} OR ${p}kode_besar ILIKE $${i} OR ${p}article ILIKE $${i})`);
     vals.push(`%${q}%`);
     i++;
   }
@@ -179,7 +179,7 @@ export async function GET(req: NextRequest) {
 
     const q = sp.get("q");
     if (q) {
-      storeD.push(`(d.kode ILIKE $${si} OR d.kode_mix ILIKE $${si} OR d.article ILIKE $${si})`);
+      storeD.push(`(d.kode ILIKE $${si} OR d.kode_mix ILIKE $${si} OR d.kode_besar ILIKE $${si} OR d.article ILIKE $${si})`);
       storeVals.push(`%${q}%`);
       si++;
     }
