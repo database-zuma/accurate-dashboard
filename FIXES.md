@@ -25,6 +25,7 @@
 | 13 | API | `version` filter ignored in store query | Add `["version","version"]` to store filter loop | `58713fa` |
 | 14 | DB | 30 store types mapping to branch `NULL`/Unknown | Fix view JOIN + insert 30 rows into `portal.store` | DB-only |
 | 15 | DB | `refresh_accurate_marts()` unusable by app user | Add `SECURITY DEFINER`, set owner to `postgres` | DB-only |
+| 16 | API | Search box `q` param ignored by dashboard API | Add `q` ILIKE to `buildMvFilters` + store filter block | `64390d4` |
 
 ---
 
@@ -460,6 +461,28 @@ https://accurate-dashboard.vercel.app
 
 **Vercel cache:** API responses are cached `s-maxage=300` (5 min CDN) + in-memory cache in `lib/cache.ts`. After a DB-only fix, append `?_bust=<anything>` to the URL to force a fresh API call and bypass both caches.
 
+### FIX 16 — Search Box Had No Effect on Summary / SKU / Store Tabs
+
+**File:** `app/api/dashboard/route.ts`
+**Symptom:** Typing in the search box and pressing Enter updated the URL (`?q=...`) but data never changed on the Summary, SKU Chart, or Store tabs. Search only worked on Detail tabs.
+**Root Cause:** `buildMvFilters()` handled all filter params (branch, store, gender, series, tier, etc.) but silently ignored the `q` parameter. `/api/dashboard` was called with `q` in the URL, but no SQL condition was generated.
+**Fix:** Added `q` ILIKE search to `buildMvFilters()` (covers KPIs, time series, all charts, rank table) and to the store-specific filter block:
+
+```ts
+const q = sp.get("q");
+if (q) {
+  conds.push(`(${p}kode ILIKE $${i} OR ${p}kode_mix ILIKE $${i} OR ${p}article ILIKE $${i})`);
+  vals.push(`%${q}%`);
+  i++;
+}
+```
+
+> Note: same `$N` placeholder is reused for the three OR conditions — valid PostgreSQL syntax (same parameter, referenced multiple times).
+
+**Scope of fix:** KPIs, Sales Over Time chart, Branch/Series/Gender/Tier/Tipe/Size/Price charts, Rank by Article, Store Performance table — all now correctly filter by `q`.
+
+---
+
 ---
 
 ## Known Remaining Issues (as of Feb 2026)
@@ -498,4 +521,4 @@ Then insert into `portal.store` and run `SELECT mart.refresh_accurate_marts();`.
 
 ---
 
-*Last updated: 2026-02-26 — All fixes above are live in production.*
+*Last updated: 2026-02-27 — All fixes above are live in production.*
