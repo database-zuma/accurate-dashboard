@@ -32,7 +32,7 @@ export async function POST(req: Request) {
         system: buildSystemPrompt(dashboardContext),
         messages: await convertToModelMessages(messages),
         tools: metisTools,
-        stopWhen: stepCountIs(5),
+        stopWhen: stepCountIs(3),
       });
 
       const streamResponse = result.toUIMessageStreamResponse();

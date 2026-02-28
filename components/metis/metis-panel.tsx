@@ -233,7 +233,8 @@ export function MetisPanel({ onClose, isVisible }: MetisPanelProps) {
             showingSessions={showSessions}
             activeModel={activeModel}
           />
-          {showSessions ? (
+          {/* Session list overlays chat — chat stays mounted underneath */}
+          {showSessions && (
             <MetisSessionList
               sessions={sessions}
               activeSessionId={activeChatId}
@@ -243,7 +244,8 @@ export function MetisPanel({ onClose, isVisible }: MetisPanelProps) {
               onDelete={handleDelete}
               onClose={() => setShowSessions(false)}
             />
-          ) : (
+          )}
+          <div className={showSessions ? "hidden" : "contents"}>
             <MetisPanelInner
               key={`${activeChatId}-${innerKey}`}
               initialChatId={activeChatId}
@@ -252,7 +254,7 @@ export function MetisPanel({ onClose, isVisible }: MetisPanelProps) {
               onMessagesUpdate={handleMessagesUpdate}
               onModelUpdate={setActiveModel}
             />
-          )}
+          </div>
         </>
       )}
     </motion.div>
