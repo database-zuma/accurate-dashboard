@@ -29,6 +29,7 @@ function buildMvFilters(
   for (const [param, col] of [
     ["branch", "branch"],
     ["store",  "toko"],
+    ["channel", "store_category"],
     ["series", "series"],
     ["gender", "gender"],
     ["tier",   "tier"],
@@ -165,7 +166,7 @@ export async function GET(req: NextRequest) {
       storeVals.push(...customer);
     }
 
-    for (const [param, col] of [["series","series"],["gender","gender"],["tier","tier"],["color","color"],["tipe","tipe"],["version","version"]] as [string,string][]) {
+    for (const [param, col] of [["series","series"],["gender","gender"],["tier","tier"],["color","color"],["tipe","tipe"],["version","version"],["channel","store_category"]] as [string,string][]) {
       const fv = parseMulti(sp, param);
       if (!fv.length) continue;
       const phs = fv.map(() => `$${si++}`).join(", ");

@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
     for (const [param, col] of [
       ["branch",  "d.branch"],
       ["store",   "d.toko"],
+      ["channel", "d.store_category"],
       ["series",  "COALESCE(NULLIF(d.kodemix_series, ''), 'Unknown')"],
       ["gender",  "COALESCE(NULLIF(d.kodemix_gender, ''), 'Unknown')"],
       ["tier",    "COALESCE(NULLIF(d.kodemix_tier, ''), 'Unknown')"],

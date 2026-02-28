@@ -25,13 +25,14 @@ function buildWhereClause(
   if (to)   { conds.push(`d.sale_date <= $${i++}`); vals.push(to); }
 
   for (const [param, col] of [
-    ["branch", "d.branch"],
-    ["store",  "d.toko"],
-    ["gender", "d.gender"],
-    ["series", "d.series"],
-    ["color",  "d.color"],
-    ["tier",   "d.tier"],
-    ["tipe",   "d.tipe"],
+    ["branch",  "d.branch"],
+    ["store",   "d.toko"],
+    ["channel", "d.store_category"],
+    ["gender",  "d.gender"],
+    ["series",  "d.series"],
+    ["color",   "d.color"],
+    ["tier",    "d.tier"],
+    ["tipe",    "d.tipe"],
     ["version", "d.version"],
     ["entity",  "d.source_entity"],
     ["customer", "d.customer"],
@@ -57,16 +58,17 @@ export async function GET(req: NextRequest) {
 
   try {
     const dims = [
-      { key: "branches", col: "d.branch",  param: "branch", nullFilter: "d.branch IS NOT NULL" },
-      { key: "stores",   col: "d.toko",    param: "store",  nullFilter: "d.toko IS NOT NULL AND d.toko != ''" },
-      { key: "genders",  col: "d.gender",  param: "gender", nullFilter: "d.gender IS NOT NULL" },
-      { key: "series",   col: "d.series",  param: "series", nullFilter: "d.series IS NOT NULL" },
-      { key: "colors",   col: "d.color",   param: "color",  nullFilter: "d.color IS NOT NULL AND d.color != ''" },
-      { key: "tiers",    col: "d.tier",    param: "tier",   nullFilter: "d.tier IS NOT NULL" },
-      { key: "tipes",    col: "d.tipe",    param: "tipe",   nullFilter: "d.tipe IS NOT NULL" },
-      { key: "versions", col: "d.version", param: "version", nullFilter: "d.version IS NOT NULL" },
-      { key: "entities",  col: "d.source_entity", param: "entity",   nullFilter: "d.source_entity IS NOT NULL" },
-      { key: "customers", col: "d.customer",       param: "customer", nullFilter: "d.customer IS NOT NULL AND d.customer != ''" },
+      { key: "branches",  col: "d.branch",         param: "branch",   nullFilter: "d.branch IS NOT NULL" },
+      { key: "stores",    col: "d.toko",           param: "store",    nullFilter: "d.toko IS NOT NULL AND d.toko != ''" },
+      { key: "channels",  col: "d.store_category", param: "channel",  nullFilter: "d.store_category IS NOT NULL" },
+      { key: "genders",   col: "d.gender",         param: "gender",   nullFilter: "d.gender IS NOT NULL" },
+      { key: "series",    col: "d.series",         param: "series",   nullFilter: "d.series IS NOT NULL" },
+      { key: "colors",    col: "d.color",          param: "color",    nullFilter: "d.color IS NOT NULL AND d.color != ''" },
+      { key: "tiers",     col: "d.tier",           param: "tier",     nullFilter: "d.tier IS NOT NULL" },
+      { key: "tipes",     col: "d.tipe",           param: "tipe",     nullFilter: "d.tipe IS NOT NULL" },
+      { key: "versions",  col: "d.version",        param: "version",  nullFilter: "d.version IS NOT NULL" },
+      { key: "entities",  col: "d.source_entity",  param: "entity",   nullFilter: "d.source_entity IS NOT NULL" },
+      { key: "customers", col: "d.customer",        param: "customer", nullFilter: "d.customer IS NOT NULL AND d.customer != ''" },
     ] as const;
 
     const results = await Promise.all(

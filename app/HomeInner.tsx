@@ -120,6 +120,7 @@ export default function HomeInner() {
     branch: searchParams.get("branch")?.split(",").filter(Boolean) || [],
     store: searchParams.get("store")?.split(",").filter(Boolean) || [],
     entity: searchParams.get("entity")?.split(",").filter(Boolean) || [],
+    channel: searchParams.get("channel")?.split(",").filter(Boolean) || [],
     customer: searchParams.get("customer")?.split(",").filter(Boolean) || [],
     gender: searchParams.get("gender")?.split(",").filter(Boolean) || [],
     series: searchParams.get("series")?.split(",").filter(Boolean) || [],
