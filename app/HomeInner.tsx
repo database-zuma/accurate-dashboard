@@ -128,6 +128,7 @@ export default function HomeInner() {
     tipe: searchParams.get("tipe")?.split(",").filter(Boolean) || [],
     version: searchParams.get("version")?.split(",").filter(Boolean) || [],
     q: searchParams.get("q") || "",
+    excludeNonSku: searchParams.get("excludeNonSku") === "1",
   }), [searchParams]);
 
   const visibleDataSummary = useMemo(() => {

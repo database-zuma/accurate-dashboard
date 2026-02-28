@@ -7,75 +7,199 @@ import { MetisHeader } from "./metis-header";
 import { MetisContextBar } from "./metis-context-bar";
 import { MetisMessages } from "./metis-messages";
 import { MetisInput } from "./metis-input";
+import { MetisSessionList, type SessionMeta } from "./metis-session-list";
 import { useMetisContext } from "@/providers/metis-provider";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const DASHBOARD_ID = "accurate-sales";
+
+// ── User fingerprint ──────────────────────────────────
+// Simple browser fingerprint — persisted in localStorage so the same browser
+// always gets the same ID. No login needed.
+function getUserFingerprint(): string {
+  const KEY = "metis-uid";
+  let uid = localStorage.getItem(KEY);
+  if (!uid) {
+    uid = `u-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    localStorage.setItem(KEY, uid);
+  }
+  return uid;
+}
 
 interface MetisPanelProps {
   onClose: () => void;
   isVisible: boolean;
 }
 
-/** Save session to DB (best-effort) */
-async function saveSession(id: string, messages: UIMessage[]) {
+// ── API helpers ───────────────────────────────────────
+
+async function fetchSessions(uid: string): Promise<SessionMeta[]> {
+  try {
+    const res = await fetch(
+      `/api/metis/sessions?dashboard=${DASHBOARD_ID}&uid=${uid}`
+    );
+    const { sessions } = await res.json();
+    return sessions || [];
+  } catch {
+    return [];
+  }
+}
+
+async function saveSession(
+  id: string,
+  messages: UIMessage[],
+  uid: string,
+  title?: string
+) {
   try {
     await fetch("/api/metis/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, dashboard: DASHBOARD_ID, messages }),
+      body: JSON.stringify({
+        id,
+        dashboard: DASHBOARD_ID,
+        messages,
+        title: title || "",
+        uid,
+      }),
     });
-  } catch {
-    // silent — persistence is best-effort
-  }
-}
-
-/** Load latest session from DB */
-async function loadSession(): Promise<{
-  id: string;
-  messages: UIMessage[];
-} | null> {
-  try {
-    const res = await fetch(
-      `/api/metis/sessions?dashboard=${DASHBOARD_ID}`
-    );
-    const { session } = await res.json();
-    if (session?.messages?.length > 0) {
-      return { id: session.id, messages: session.messages };
-    }
   } catch {
     // silent
   }
-  return null;
 }
 
-/**
- * MetisPanel — Outer wrapper that loads session from DB first,
- * then mounts the inner chat panel with the correct initial state.
- * This avoids the useChat race condition where changing chatId
- * causes the hook to reinitialize with empty messages.
- */
-export function MetisPanel({ onClose, isVisible }: MetisPanelProps) {
-  const [sessionLoaded, setSessionLoaded] = useState(false);
-  const [initialChatId, setInitialChatId] = useState<string>("");
-  const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
+async function renameSession(id: string, title: string) {
+  try {
+    await fetch("/api/metis/sessions", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, title }),
+    });
+  } catch {
+    // silent
+  }
+}
 
-  // Load session once on mount
+async function deleteSession(id: string) {
+  try {
+    await fetch("/api/metis/sessions", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+  } catch {
+    // silent
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// MetisPanel — Outer: loads session list, manages active session
+// ══════════════════════════════════════════════════════
+
+export function MetisPanel({ onClose, isVisible }: MetisPanelProps) {
+  const [ready, setReady] = useState(false);
+  const [uid, setUid] = useState("");
+  const [sessions, setSessions] = useState<SessionMeta[]>([]);
+  const [activeChatId, setActiveChatId] = useState("");
+  const [activeMessages, setActiveMessages] = useState<UIMessage[]>([]);
+  const [showSessions, setShowSessions] = useState(false);
+
+  // Key to force-remount inner component when switching sessions
+  const [innerKey, setInnerKey] = useState(0);
+
+  // Init: get uid + load sessions + start new chat
   useEffect(() => {
-    loadSession().then((prev) => {
-      if (prev) {
-        setInitialChatId(prev.id);
-        setInitialMessages(prev.messages);
-      } else {
-        setInitialChatId(`metis-${Date.now()}`);
-        setInitialMessages([]);
-      }
-      setSessionLoaded(true);
+    const u = getUserFingerprint();
+    setUid(u);
+    fetchSessions(u).then((list) => {
+      setSessions(list);
+      // Always start a NEW chat on page load
+      const newId = `metis-${Date.now()}`;
+      setActiveChatId(newId);
+      setActiveMessages([]);
+      setReady(true);
     });
   }, []);
 
-  if (!sessionLoaded) {
-    // Render the shell with a loading indicator while fetching session
+  // Switch to existing session
+  const handleSelectSession = useCallback(
+    (id: string) => {
+      const session = sessions.find((s) => s.id === id);
+      if (session) {
+        setActiveChatId(session.id);
+        setActiveMessages(session.messages as UIMessage[]);
+        setInnerKey((k) => k + 1);
+        setShowSessions(false);
+      }
+    },
+    [sessions]
+  );
+
+  // New chat
+  const handleNewChat = useCallback(() => {
+    const newId = `metis-${Date.now()}`;
+    setActiveChatId(newId);
+    setActiveMessages([]);
+    setInnerKey((k) => k + 1);
+    setShowSessions(false);
+  }, []);
+
+  // Rename
+  const handleRename = useCallback(
+    (id: string, title: string) => {
+      renameSession(id, title);
+      setSessions((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, title } : s))
+      );
+    },
+    []
+  );
+
+  // Delete
+  const handleDelete = useCallback(
+    (id: string) => {
+      deleteSession(id);
+      setSessions((prev) => prev.filter((s) => s.id !== id));
+      // If deleted the active session, start new
+      if (id === activeChatId) {
+        handleNewChat();
+      }
+    },
+    [activeChatId, handleNewChat]
+  );
+
+  // Callback from inner when messages update — sync to session list
+  const handleMessagesUpdate = useCallback(
+    (id: string, messages: UIMessage[]) => {
+      setSessions((prev) => {
+        const exists = prev.find((s) => s.id === id);
+        if (exists) {
+          return prev.map((s) =>
+            s.id === id
+              ? { ...s, messages, updated_at: new Date().toISOString() }
+              : s
+          );
+        }
+        // New session — prepend
+        const firstUserMsg = messages.find((m) => m.role === "user");
+        const firstPart = firstUserMsg?.parts?.[0];
+        const title = (firstPart && "text" in firstPart ? firstPart.text?.slice(0, 60) : null) || "Untitled";
+        return [
+          {
+            id,
+            title,
+            messages,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          } as SessionMeta,
+          ...prev,
+        ];
+      });
+    },
+    []
+  );
+
+  if (!ready) {
     return (
       <AnimatePresence>
         {isVisible && (
@@ -85,8 +209,7 @@ export function MetisPanel({ onClose, isVisible }: MetisPanelProps) {
             exit={{ opacity: 0, scale: 0.85, y: 20 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
             style={{ transformOrigin: "bottom right" }}
-            className="fixed z-[9999]
-                       inset-0 rounded-none
+            className="fixed z-[9999] inset-0 rounded-none
                        md:inset-auto md:bottom-6 md:right-6 md:w-[400px] md:h-[620px] md:max-h-[85vh] md:rounded-2xl
                        shadow-2xl border border-border bg-background
                        flex flex-col overflow-hidden items-center justify-center"
@@ -102,35 +225,75 @@ export function MetisPanel({ onClose, isVisible }: MetisPanelProps) {
   }
 
   return (
-    <MetisPanelInner
-      key={initialChatId} // Force fresh mount if chatId changes
-      onClose={onClose}
-      isVisible={isVisible}
-      initialChatId={initialChatId}
-      initialMessages={initialMessages}
-    />
+    <AnimatePresence>
+      {isVisible && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.85, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.85, y: 20 }}
+          transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          style={{ transformOrigin: "bottom right" }}
+          className="fixed z-[9999] inset-0 rounded-none
+                     md:inset-auto md:bottom-6 md:right-6 md:w-[400px] md:h-[620px] md:max-h-[85vh] md:rounded-2xl
+                     shadow-2xl border border-border bg-background
+                     flex flex-col overflow-hidden"
+        >
+          <MetisHeader
+            onMinimize={onClose}
+            onNewChat={handleNewChat}
+            onToggleSessions={() => setShowSessions((v) => !v)}
+            showingSessions={showSessions}
+            activeModel={undefined} // will be set by inner
+          />
+
+          {showSessions ? (
+            <MetisSessionList
+              sessions={sessions}
+              activeSessionId={activeChatId}
+              onSelect={handleSelectSession}
+              onNew={handleNewChat}
+              onRename={handleRename}
+              onDelete={handleDelete}
+              onClose={() => setShowSessions(false)}
+            />
+          ) : (
+            <MetisPanelInner
+              key={`${activeChatId}-${innerKey}`}
+              onClose={onClose}
+              isVisible={true}
+              initialChatId={activeChatId}
+              initialMessages={activeMessages}
+              uid={uid}
+              onMessagesUpdate={handleMessagesUpdate}
+            />
+          )}
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
-/**
- * MetisPanelInner — Contains useChat hook, initialized with correct chatId.
- * Messages are set once via useEffect after mount (no race condition).
- */
+// ══════════════════════════════════════════════════════
+// MetisPanelInner — useChat hook + auto-save
+// ══════════════════════════════════════════════════════
+
 function MetisPanelInner({
-  onClose,
-  isVisible,
   initialChatId,
   initialMessages,
-}: MetisPanelProps & {
+  uid,
+  onMessagesUpdate,
+}: {
+  onClose: () => void;
+  isVisible: boolean;
   initialChatId: string;
   initialMessages: UIMessage[];
+  uid: string;
+  onMessagesUpdate: (id: string, messages: UIMessage[]) => void;
 }) {
   const { dashboardContext } = useMetisContext();
-  const [chatId, setChatId] = useState(initialChatId);
   const contextRef = useRef(dashboardContext);
   contextRef.current = dashboardContext;
 
-  // Track which model actually responded
   const [activeModel, setActiveModel] = useState<string>("Kimi K2.5");
   const setActiveModelRef = useRef(setActiveModel);
   setActiveModelRef.current = setActiveModel;
@@ -147,10 +310,7 @@ function MetisPanelInner({
         },
         prepareSendMessagesRequest({ messages }) {
           return {
-            body: {
-              messages,
-              dashboardContext: contextRef.current,
-            },
+            body: { messages, dashboardContext: contextRef.current },
           };
         },
       }),
@@ -158,13 +318,13 @@ function MetisPanelInner({
   );
 
   const { messages, sendMessage, status, stop, setMessages } = useChat({
-    id: chatId,
+    id: initialChatId,
     transport,
   });
 
   const isLoading = status === "streaming" || status === "submitted";
 
-  // ── Restore initial messages once on mount ──
+  // Restore initial messages once
   const restoredRef = useRef(false);
   useEffect(() => {
     if (!restoredRef.current && initialMessages.length > 0) {
@@ -173,61 +333,33 @@ function MetisPanelInner({
     }
   }, [initialMessages, setMessages]);
 
-  // ── Auto-save after each completed exchange ──
+  // Auto-save after each completed exchange
   const prevLenRef = useRef(initialMessages.length);
   useEffect(() => {
-    // Only save when message count actually changes and we're not streaming
-    if (messages.length > 0 && messages.length !== prevLenRef.current && !isLoading) {
+    if (
+      messages.length > 0 &&
+      messages.length !== prevLenRef.current &&
+      !isLoading
+    ) {
       prevLenRef.current = messages.length;
-      saveSession(chatId, messages);
+      saveSession(initialChatId, messages, uid);
+      onMessagesUpdate(initialChatId, messages);
     }
-  }, [messages, isLoading, chatId]);
+  }, [messages, isLoading, initialChatId, uid, onMessagesUpdate]);
 
   const handleSend = useCallback(
-    (text: string) => {
-      sendMessage({ text });
-    },
+    (text: string) => sendMessage({ text }),
     [sendMessage]
   );
 
-  const handleClear = useCallback(() => {
-    // Save empty to close old session, start fresh
-    saveSession(chatId, []);
-    setMessages([]);
-    const newId = `metis-${Date.now()}`;
-    setChatId(newId);
-    prevLenRef.current = 0;
-  }, [chatId, setMessages]);
-
   return (
-    <AnimatePresence>
-      {isVisible && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.85, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.85, y: 20 }}
-          transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          style={{ transformOrigin: "bottom right" }}
-          className="fixed z-[9999]
-                     inset-0 rounded-none
-                     md:inset-auto md:bottom-6 md:right-6 md:w-[400px] md:h-[620px] md:max-h-[85vh] md:rounded-2xl
-                     shadow-2xl border border-border bg-background
-                     flex flex-col overflow-hidden"
-        >
-          <MetisHeader
-            onMinimize={onClose}
-            onClear={handleClear}
-            messageCount={messages.length}
-            activeModel={activeModel}
-          />
-          <MetisContextBar
-            filters={dashboardContext?.filters}
-            activeTab={dashboardContext?.activeTab}
-          />
-          <MetisMessages messages={messages} isLoading={isLoading} />
-          <MetisInput onSend={handleSend} onStop={stop} isLoading={isLoading} />
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <>
+      <MetisContextBar
+        filters={dashboardContext?.filters}
+        activeTab={dashboardContext?.activeTab}
+      />
+      <MetisMessages messages={messages} isLoading={isLoading} />
+      <MetisInput onSend={handleSend} onStop={stop} isLoading={isLoading} />
+    </>
   );
 }

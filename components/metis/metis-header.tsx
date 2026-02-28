@@ -1,18 +1,20 @@
 "use client";
 
-import { Sparkles, Minus, Trash2 } from "lucide-react";
+import { Sparkles, Minus, Plus, List } from "lucide-react";
 
 interface MetisHeaderProps {
   onMinimize: () => void;
-  onClear: () => void;
-  messageCount: number;
+  onNewChat: () => void;
+  onToggleSessions: () => void;
+  showingSessions: boolean;
   activeModel?: string;
 }
 
 export function MetisHeader({
   onMinimize,
-  onClear,
-  messageCount,
+  onNewChat,
+  onToggleSessions,
+  showingSessions,
   activeModel,
 }: MetisHeaderProps) {
   return (
@@ -20,7 +22,9 @@ export function MetisHeader({
       <div className="flex items-center gap-2">
         <Sparkles className="size-4 text-[#00E273]" />
         <span className="font-semibold text-sm">Metis AI</span>
-        <span className="text-[10px] text-white/50 bg-white/10 px-1.5 py-0.5 rounded">beta</span>
+        <span className="text-[10px] text-white/50 bg-white/10 px-1.5 py-0.5 rounded">
+          beta
+        </span>
         {activeModel && (
           <span
             className="text-[9px] text-[#00E273]/70 bg-[#00E273]/10 border border-[#00E273]/20 px-1.5 py-0.5 rounded font-mono"
@@ -31,15 +35,20 @@ export function MetisHeader({
         )}
       </div>
       <div className="flex items-center gap-1">
-        {messageCount > 0 && (
-          <button
-            onClick={onClear}
-            className="p-1.5 rounded-md hover:bg-white/10 transition-colors"
-            title="Clear chat"
-          >
-            <Trash2 className="size-3.5 text-white/60" />
-          </button>
-        )}
+        <button
+          onClick={onToggleSessions}
+          className={`p-1.5 rounded-md transition-colors ${showingSessions ? "bg-white/20" : "hover:bg-white/10"}`}
+          title="Chat sessions"
+        >
+          <List className="size-3.5 text-white/60" />
+        </button>
+        <button
+          onClick={onNewChat}
+          className="p-1.5 rounded-md hover:bg-white/10 transition-colors"
+          title="New chat"
+        >
+          <Plus className="size-3.5 text-white/60" />
+        </button>
         <button
           onClick={onMinimize}
           className="p-1.5 rounded-md hover:bg-white/10 transition-colors"
