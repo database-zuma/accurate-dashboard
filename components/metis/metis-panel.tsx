@@ -10,6 +10,7 @@ import { MetisInput } from "./metis-input";
 import { MetisSessionList, type SessionMeta } from "./metis-session-list";
 import { useMetisContext } from "@/providers/metis-provider";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PRIMARY_MODEL, getModelDisplayName } from "@/lib/metis/config";
 
 const DASHBOARD_ID = "accurate-sales";
 
@@ -103,7 +104,7 @@ export function MetisPanel({ onClose, isVisible }: MetisPanelProps) {
   const [activeChatId, setActiveChatId] = useState("");
   const [activeMessages, setActiveMessages] = useState<UIMessage[]>([]);
   const [showSessions, setShowSessions] = useState(false);
-  const [activeModel, setActiveModel] = useState<string | undefined>();
+  const [activeModel, setActiveModel] = useState<string>(PRIMARY_MODEL.name);
 
   // Key to force-remount inner component when switching sessions
   const [innerKey, setInnerKey] = useState(0);
