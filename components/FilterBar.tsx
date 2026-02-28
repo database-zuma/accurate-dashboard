@@ -314,6 +314,30 @@ export default function FilterBar() {
         <div className="flex-1 min-w-[90px]">
           <MultiSelect label="ENTITY" paramKey="entity" options={opts?.entities || []} />
         </div>
+        <div className="flex-1 min-w-[90px]">
+          <MultiSelect label="CUSTOMER" paramKey="customer" options={opts?.customers || []} />
+        </div>
+        <div className="flex-1 min-w-[90px]">
+          <MultiSelect label="STORE" paramKey="store" options={opts?.stores || []} />
+        </div>
+        <div className="flex-1 min-w-[80px]">
+          <MultiSelect label="GENDER" paramKey="gender" options={opts?.genders || []} />
+        </div>
+        <div className="flex-1 min-w-[80px]">
+          <MultiSelect label="SERIES" paramKey="series" options={opts?.series || []} />
+        </div>
+        <div className="flex-1 min-w-[80px]">
+          <MultiSelect label="COLOR" paramKey="color" options={opts?.colors || []} />
+        </div>
+        <div className="flex-1 min-w-[70px]">
+          <MultiSelect label="TIER" paramKey="tier" options={opts?.tiers || []} />
+        </div>
+        <div className="flex-1 min-w-[80px]">
+          <MultiSelect label="TIPE" paramKey="tipe" options={opts?.tipes || []} />
+        </div>
+        <div className="flex-1 min-w-[80px]">
+          <MultiSelect label="VERSION" paramKey="version" options={opts?.versions || []} />
+        </div>
       </div>
       <div className="flex gap-1.5 items-center w-full">
         <div className="flex-1">
