@@ -29,11 +29,11 @@ export async function executeReadOnlyQuery(sql: string): Promise<QueryResult> {
 
   const client = await pool.connect();
   try {
-    await client.query("SET statement_timeout = '30s'");
+    await client.query("SET statement_timeout = '15s'");
     const result = await client.query(trimmed);
     return {
       columns: result.fields.map((f) => f.name),
-      rows: result.rows.slice(0, 500),
+      rows: result.rows.slice(0, 200),
       rowCount: result.rowCount ?? 0,
     };
   } finally {

@@ -62,9 +62,17 @@ export function MetisMessages({ messages, isLoading }: MetisMessagesProps) {
 
   return (
     <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3">
-      {messages.map((message) => (
-        <MetisMessage key={message.id} message={message} />
-      ))}
+      {messages.map((message, idx) => {
+        const isLastAssistant =
+          idx === messages.length - 1 && message.role === "assistant";
+        return (
+          <MetisMessage
+            key={message.id}
+            message={message}
+            isStreaming={isLoading && isLastAssistant}
+          />
+        );
+      })}
       {isLoading && messages[messages.length - 1]?.role === "user" && (
         <div className="flex gap-2">
           <div className="size-7 rounded-full bg-[#00E273]/15 flex items-center justify-center shrink-0">

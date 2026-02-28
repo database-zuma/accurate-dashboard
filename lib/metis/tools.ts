@@ -26,7 +26,7 @@ export const metisTools = {
           columns: result.columns,
           rows: result.rows,
           rowCount: result.rowCount,
-          truncated: result.rowCount > 500,
+          truncated: result.rowCount > 200,
         };
       } catch (error: unknown) {
         const message =

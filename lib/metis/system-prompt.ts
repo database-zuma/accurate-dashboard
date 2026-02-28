@@ -69,6 +69,8 @@ ${nonSkuRule}
 3. Default periode = 3 bulan terakhir jika tidak disebut
 4. Pakai kode_mix untuk perbandingan antar waktu (beda versi produk = beda kode_besar, tapi kode_mix sama)
 5. LIMIT adaptive: gunakan LIMIT ${suggestedLimit}. Max 200 kecuali aggregation.
+6. SELALU aggregate dulu (GROUP BY + SUM/COUNT/AVG) sebelum return detail rows. HINDARI SELECT * tanpa GROUP BY — ini sangat lambat di tabel 1.5M+ rows.
+7. Untuk pertanyaan umum ("performa branch"), query aggregated. Detail rows hanya jika user minta spesifik artikel/size.
 
 ## Domain Knowledge Zuma
 - 6 branch: Jatim (home base, most stores), Jakarta, Sumatra, Sulawesi, Batam, Bali. DDD=retail, MBB=online marketplace, UBB=wholesale.
