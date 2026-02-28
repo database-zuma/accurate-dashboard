@@ -20,10 +20,22 @@ export function MetisPanel({ onClose }: MetisPanelProps) {
   const contextRef = useRef(dashboardContext);
   contextRef.current = dashboardContext;
 
+  // Track which model actually responded (read from X-Metis-Model response header)
+  const [activeModel, setActiveModel] = useState<string>("Kimi K2.5");
+  const setActiveModelRef = useRef(setActiveModel);
+  setActiveModelRef.current = setActiveModel;
+
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
         api: "/api/metis/chat",
+        // Custom fetch to capture which model the backend used
+        fetch: async (url, options) => {
+          const res = await fetch(url, options as RequestInit);
+          const model = res.headers.get("X-Metis-Model");
+          if (model) setActiveModelRef.current(model);
+          return res;
+        },
         prepareSendMessagesRequest({ messages }) {
           return {
             body: {
@@ -72,6 +84,7 @@ export function MetisPanel({ onClose }: MetisPanelProps) {
         onMinimize={onClose}
         onClear={handleClear}
         messageCount={messages.length}
+        activeModel={activeModel}
       />
       <MetisContextBar
         filters={dashboardContext?.filters}
