@@ -26,6 +26,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        {/* Disable Vercel toolbar on preview deployments */}
+        <style dangerouslySetInnerHTML={{ __html: `
+          vercel-live-feedback,
+          vercel-toolbar,
+          #vercel-live-feedback,
+          #__vercel-toolbar-portal,
+          [data-vercel-toolbar] { display: none !important; }
+        ` }} />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
