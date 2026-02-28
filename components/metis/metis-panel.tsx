@@ -2,7 +2,7 @@
 
 import { useChat, type UIMessage } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { MetisHeader } from "./metis-header";
 import { MetisContextBar } from "./metis-context-bar";
 import { MetisMessages } from "./metis-messages";
@@ -103,6 +103,7 @@ export function MetisPanel({ onClose, isVisible }: MetisPanelProps) {
   const [activeChatId, setActiveChatId] = useState("");
   const [activeMessages, setActiveMessages] = useState<UIMessage[]>([]);
   const [showSessions, setShowSessions] = useState(false);
+  const [activeModel, setActiveModel] = useState<string | undefined>();
 
   // Key to force-remount inner component when switching sessions
   const [innerKey, setInnerKey] = useState(0);
@@ -199,53 +200,39 @@ export function MetisPanel({ onClose, isVisible }: MetisPanelProps) {
     []
   );
 
-  if (!ready) {
-    return (
-      <AnimatePresence>
-        {isVisible && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.85, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.85, y: 20 }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            style={{ transformOrigin: "bottom right" }}
-            className="fixed z-[9999] inset-0 rounded-none
-                       md:inset-auto md:bottom-6 md:right-6 md:w-[400px] md:h-[620px] md:max-h-[85vh] md:rounded-2xl
-                       shadow-2xl border border-border bg-background
-                       flex flex-col overflow-hidden items-center justify-center"
-          >
-            <div className="flex flex-col items-center gap-3 text-muted-foreground">
-              <div className="h-6 w-6 border-2 border-current border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm">Memuat sesi...</span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    );
-  }
-
   return (
-    <AnimatePresence>
-      {isVisible && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.85, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.85, y: 20 }}
-          transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          style={{ transformOrigin: "bottom right" }}
-          className="fixed z-[9999] inset-0 rounded-none
-                     md:inset-auto md:bottom-6 md:right-6 md:w-[400px] md:h-[620px] md:max-h-[85vh] md:rounded-2xl
-                     shadow-2xl border border-border bg-background
-                     flex flex-col overflow-hidden"
-        >
+    <motion.div
+      initial={{ opacity: 0, scale: 0.85, y: 20 }}
+      animate={
+        isVisible
+          ? { opacity: 1, scale: 1, y: 0 }
+          : { opacity: 0, scale: 0.85, y: 20 }
+      }
+      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+      aria-hidden={!isVisible}
+      style={{
+        transformOrigin: "bottom right",
+        pointerEvents: isVisible ? "auto" : "none",
+      }}
+      className="fixed z-[9999] inset-0 rounded-none
+                 md:inset-auto md:bottom-6 md:right-6 md:w-[400px] md:h-[620px] md:max-h-[85vh] md:rounded-2xl
+                 shadow-2xl border border-border bg-background
+                 flex flex-col overflow-hidden"
+    >
+      {!ready ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">
+          <div className="h-6 w-6 border-2 border-current border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm">Memuat sesi...</span>
+        </div>
+      ) : (
+        <>
           <MetisHeader
             onMinimize={onClose}
             onNewChat={handleNewChat}
             onToggleSessions={() => setShowSessions((v) => !v)}
             showingSessions={showSessions}
-            activeModel={undefined} // will be set by inner
+            activeModel={activeModel}
           />
-
           {showSessions ? (
             <MetisSessionList
               sessions={sessions}
@@ -259,17 +246,16 @@ export function MetisPanel({ onClose, isVisible }: MetisPanelProps) {
           ) : (
             <MetisPanelInner
               key={`${activeChatId}-${innerKey}`}
-              onClose={onClose}
-              isVisible={true}
               initialChatId={activeChatId}
               initialMessages={activeMessages}
               uid={uid}
               onMessagesUpdate={handleMessagesUpdate}
+              onModelUpdate={setActiveModel}
             />
           )}
-        </motion.div>
+        </>
       )}
-    </AnimatePresence>
+    </motion.div>
   );
 }
 
@@ -282,21 +268,20 @@ function MetisPanelInner({
   initialMessages,
   uid,
   onMessagesUpdate,
+  onModelUpdate,
 }: {
-  onClose: () => void;
-  isVisible: boolean;
   initialChatId: string;
   initialMessages: UIMessage[];
   uid: string;
   onMessagesUpdate: (id: string, messages: UIMessage[]) => void;
+  onModelUpdate: (model: string) => void;
 }) {
   const { dashboardContext } = useMetisContext();
   const contextRef = useRef(dashboardContext);
   contextRef.current = dashboardContext;
 
-  const [activeModel, setActiveModel] = useState<string>("Kimi K2.5");
-  const setActiveModelRef = useRef(setActiveModel);
-  setActiveModelRef.current = setActiveModel;
+  const onModelUpdateRef = useRef(onModelUpdate);
+  onModelUpdateRef.current = onModelUpdate;
 
   const transport = useMemo(
     () =>
@@ -305,7 +290,7 @@ function MetisPanelInner({
         fetch: async (url, options) => {
           const res = await fetch(url, options as RequestInit);
           const model = res.headers.get("X-Metis-Model");
-          if (model) setActiveModelRef.current(model);
+          if (model) onModelUpdateRef.current(model);
           return res;
         },
         prepareSendMessagesRequest({ messages }) {
