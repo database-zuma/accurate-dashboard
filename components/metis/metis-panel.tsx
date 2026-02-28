@@ -17,7 +17,7 @@ interface MetisPanelProps {
   isVisible: boolean;
 }
 
-/** Save session to DB (debounced by caller) */
+/** Save session to DB (best-effort) */
 async function saveSession(id: string, messages: UIMessage[]) {
   try {
     await fetch("/api/metis/sessions", {
@@ -49,25 +49,96 @@ async function loadSession(): Promise<{
   return null;
 }
 
+/**
+ * MetisPanel — Outer wrapper that loads session from DB first,
+ * then mounts the inner chat panel with the correct initial state.
+ * This avoids the useChat race condition where changing chatId
+ * causes the hook to reinitialize with empty messages.
+ */
 export function MetisPanel({ onClose, isVisible }: MetisPanelProps) {
+  const [sessionLoaded, setSessionLoaded] = useState(false);
+  const [initialChatId, setInitialChatId] = useState<string>("");
+  const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
+
+  // Load session once on mount
+  useEffect(() => {
+    loadSession().then((prev) => {
+      if (prev) {
+        setInitialChatId(prev.id);
+        setInitialMessages(prev.messages);
+      } else {
+        setInitialChatId(`metis-${Date.now()}`);
+        setInitialMessages([]);
+      }
+      setSessionLoaded(true);
+    });
+  }, []);
+
+  if (!sessionLoaded) {
+    // Render the shell with a loading indicator while fetching session
+    return (
+      <AnimatePresence>
+        {isVisible && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.85, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.85, y: 20 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            style={{ transformOrigin: "bottom right" }}
+            className="fixed z-[9999]
+                       inset-0 rounded-none
+                       md:inset-auto md:bottom-6 md:right-6 md:w-[400px] md:h-[620px] md:max-h-[85vh] md:rounded-2xl
+                       shadow-2xl border border-border bg-background
+                       flex flex-col overflow-hidden items-center justify-center"
+          >
+            <div className="flex flex-col items-center gap-3 text-muted-foreground">
+              <div className="h-6 w-6 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm">Memuat sesi...</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  }
+
+  return (
+    <MetisPanelInner
+      key={initialChatId} // Force fresh mount if chatId changes
+      onClose={onClose}
+      isVisible={isVisible}
+      initialChatId={initialChatId}
+      initialMessages={initialMessages}
+    />
+  );
+}
+
+/**
+ * MetisPanelInner — Contains useChat hook, initialized with correct chatId.
+ * Messages are set once via useEffect after mount (no race condition).
+ */
+function MetisPanelInner({
+  onClose,
+  isVisible,
+  initialChatId,
+  initialMessages,
+}: MetisPanelProps & {
+  initialChatId: string;
+  initialMessages: UIMessage[];
+}) {
   const { dashboardContext } = useMetisContext();
-  const [chatId, setChatId] = useState(() => `metis-${Date.now()}`);
+  const [chatId, setChatId] = useState(initialChatId);
   const contextRef = useRef(dashboardContext);
   contextRef.current = dashboardContext;
 
-  // Track which model actually responded (read from X-Metis-Model response header)
+  // Track which model actually responded
   const [activeModel, setActiveModel] = useState<string>("Kimi K2.5");
   const setActiveModelRef = useRef(setActiveModel);
   setActiveModelRef.current = setActiveModel;
-
-  // DB persistence — whether we've loaded the initial session
-  const [loaded, setLoaded] = useState(false);
 
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
         api: "/api/metis/chat",
-        // Custom fetch to capture which model the backend used
         fetch: async (url, options) => {
           const res = await fetch(url, options as RequestInit);
           const model = res.headers.get("X-Metis-Model");
@@ -93,28 +164,24 @@ export function MetisPanel({ onClose, isVisible }: MetisPanelProps) {
 
   const isLoading = status === "streaming" || status === "submitted";
 
-  // ── Load previous session on mount ──
+  // ── Restore initial messages once on mount ──
+  const restoredRef = useRef(false);
   useEffect(() => {
-    loadSession().then((prev) => {
-      if (prev) {
-        setChatId(prev.id);
-        setMessages(prev.messages);
-      }
-      setLoaded(true);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!restoredRef.current && initialMessages.length > 0) {
+      restoredRef.current = true;
+      setMessages(initialMessages);
+    }
+  }, [initialMessages, setMessages]);
 
   // ── Auto-save after each completed exchange ──
-  const prevLenRef = useRef(0);
+  const prevLenRef = useRef(initialMessages.length);
   useEffect(() => {
-    if (!loaded) return;
-    // Save when message count increases and we're not actively streaming
+    // Only save when message count actually changes and we're not streaming
     if (messages.length > 0 && messages.length !== prevLenRef.current && !isLoading) {
       prevLenRef.current = messages.length;
       saveSession(chatId, messages);
     }
-  }, [messages, isLoading, chatId, loaded]);
+  }, [messages, isLoading, chatId]);
 
   const handleSend = useCallback(
     (text: string) => {
