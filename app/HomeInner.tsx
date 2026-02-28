@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import FilterBar from "@/components/FilterBar";
@@ -11,6 +11,7 @@ import BranchPieChart from "@/components/BranchPieChart";
 import StoreTable from "@/components/StoreTable";
 import SkuCharts from "@/components/SkuCharts";
 import DetailTable from "@/components/DetailTable";
+import { useMetisContext } from "@/providers/metis-provider";
 
 const TABS = [
   { id: "summary", label: "Executive Summary" },
@@ -109,6 +110,45 @@ export default function HomeInner() {
     keepPreviousData: true,
     dedupingInterval: 60000,
   });
+
+  // ── Push dashboard state to Metis context ──
+  const { setDashboardContext } = useMetisContext();
+
+  const currentFilters = useMemo(() => ({
+    from: searchParams.get("from") || `${new Date().getFullYear()}-01-01`,
+    to: searchParams.get("to") || new Date().toISOString().substring(0, 10),
+    branch: searchParams.get("branch")?.split(",").filter(Boolean) || [],
+    store: searchParams.get("store")?.split(",").filter(Boolean) || [],
+    entity: searchParams.get("entity")?.split(",").filter(Boolean) || [],
+    customer: searchParams.get("customer")?.split(",").filter(Boolean) || [],
+    gender: searchParams.get("gender")?.split(",").filter(Boolean) || [],
+    series: searchParams.get("series")?.split(",").filter(Boolean) || [],
+    color: searchParams.get("color")?.split(",").filter(Boolean) || [],
+    tier: searchParams.get("tier")?.split(",").filter(Boolean) || [],
+    tipe: searchParams.get("tipe")?.split(",").filter(Boolean) || [],
+    version: searchParams.get("version")?.split(",").filter(Boolean) || [],
+    q: searchParams.get("q") || "",
+  }), [searchParams]);
+
+  const visibleDataSummary = useMemo(() => {
+    if (!data) return undefined;
+    return {
+      kpis: data.kpis,
+      topStores: data.stores?.slice(0, 5).map(s => ({ name: s.toko, branch: s.branch, revenue: s.revenue, pairs: s.pairs })),
+      byBranch: data.byBranch,
+      bySeries: data.bySeries?.slice(0, 10),
+      byGender: data.byGender,
+      lastUpdate: data.lastUpdate,
+    };
+  }, [data]);
+
+  useEffect(() => {
+    setDashboardContext({
+      filters: currentFilters,
+      visibleData: visibleDataSummary,
+      activeTab: activeTab,
+    });
+  }, [currentFilters, visibleDataSummary, activeTab, setDashboardContext]);
 
   return (
     <div className="min-h-screen bg-background">

@@ -9,10 +9,14 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/react": "^3.0.107",
+    "@openrouter/ai-sdk-provider": "^2.2.3",
     "@types/pg": "^8.16.0",
+    "ai": "^6.0.105",
     "chart.js": "^4.5.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "framer-motion": "^12.34.3",
     "lucide-react": "^0.575.0",
     "next": "16.1.6",
     "pg": "^8.18.0",
@@ -20,9 +24,12 @@
     "react": "19.2.3",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "19.2.3",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "swr": "^2.4.0",
     "tailwind-merge": "^3.5.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
