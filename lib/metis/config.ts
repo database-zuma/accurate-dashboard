@@ -1,33 +1,29 @@
 /**
  * Metis AI — Model Configuration
  * Models are tried in order. If one fails, next is used automatically.
- * ALL models MUST be free tier on OpenRouter (`:free` suffix).
- * ALL models MUST support tool/function calling for queryDatabase.
+ * All models MUST support tool/function calling for queryDatabase.
+ *
+ * NOTE: OpenRouter free tier (:free) does NOT support tool calling.
+ * Using ultra-cheap paid models instead (~$0.0005/query = $0.50 per 1000 queries).
  */
 export const METIS_MODELS = [
   {
-    id: "google/gemini-2.0-flash-exp:free",
+    id: "deepseek/deepseek-chat-v3-0324",
+    name: "DeepSeek V3",
+    provider: "DeepSeek",
+    free: false,
+  },
+  {
+    id: "google/gemini-2.0-flash-001",
     name: "Gemini 2.0 Flash",
     provider: "Google",
-    free: true,
+    free: false,
   },
   {
-    id: "nvidia/llama-3.1-nemotron-70b-instruct:free",
-    name: "Nemotron 70B",
-    provider: "NVIDIA",
-    free: true,
-  },
-  {
-    id: "qwen/qwen3-30b-a3b:free",
-    name: "Qwen3 30B",
+    id: "qwen/qwen3-235b-a22b",
+    name: "Qwen3 235B",
     provider: "Alibaba",
-    free: true,
-  },
-  {
-    id: "meta-llama/llama-3.1-8b-instruct:free",
-    name: "Llama 3.1 8B",
-    provider: "Meta",
-    free: true,
+    free: false,
   },
 ] as const;
 

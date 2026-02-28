@@ -14,7 +14,10 @@ const openrouter = createOpenRouter({
 });
 
 export async function POST(req: Request) {
-  const { messages, dashboardContext }: {
+  const {
+    messages,
+    dashboardContext,
+  }: {
     messages: UIMessage[];
     dashboardContext?: {
       filters?: Record<string, unknown>;
@@ -23,21 +26,25 @@ export async function POST(req: Request) {
     };
   } = await req.json();
 
+  const system = buildSystemPrompt(dashboardContext);
+  const modelMessages = await convertToModelMessages(messages);
   let lastError: unknown;
 
   for (const model of METIS_MODELS) {
     try {
       const result = streamText({
         model: openrouter(model.id),
-        system: buildSystemPrompt(dashboardContext),
-        messages: await convertToModelMessages(messages),
+        system,
+        messages: modelMessages,
         tools: metisTools,
         stopWhen: stepCountIs(3),
+        onError({ error }) {
+          console.error(`[Metis] Stream error from ${model.id}:`, error);
+        },
       });
 
       const streamResponse = result.toUIMessageStreamResponse();
 
-      // Pass active model name to frontend via response header
       return new Response(streamResponse.body, {
         status: streamResponse.status,
         headers: new Headers({
@@ -51,7 +58,6 @@ export async function POST(req: Request) {
     }
   }
 
-  // All models failed
   return Response.json(
     { error: "All models unavailable", detail: String(lastError) },
     { status: 503 }
