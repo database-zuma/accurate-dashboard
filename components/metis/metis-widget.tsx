@@ -11,10 +11,13 @@ export function MetisWidget() {
   const [isOpen, setIsOpen] = useState(false);
   // Show popup once per page load (useState = resets on fresh load, not on tab switch)
   const [showPopup, setShowPopup] = useState(true);
+  // Mount panel once and keep alive — so chat survives minimize/open cycles
+  const [hasMounted, setHasMounted] = useState(false);
 
   const handleOpen = useCallback(() => {
     setIsOpen(true);
     setShowPopup(false);
+    setHasMounted(true);
   }, []);
 
   const handleClose = useCallback(() => setIsOpen(false), []);
@@ -39,11 +42,14 @@ export function MetisWidget() {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {isOpen && (
-          <MetisPanel key="panel" onClose={handleClose} />
-        )}
-      </AnimatePresence>
+      {/* Panel stays mounted after first open — hidden via CSS, not unmounted */}
+      {hasMounted && (
+        <MetisPanel
+          key="panel"
+          onClose={handleClose}
+          isVisible={isOpen}
+        />
+      )}
     </Portal>
   );
 }
