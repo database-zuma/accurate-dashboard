@@ -1,19 +1,26 @@
 /**
  * Metis AI — Model Configuration
  * Models are tried in order. If one fails, next is used automatically.
- * All fallback models must be free tier on OpenRouter.
+ * ALL models MUST be free tier on OpenRouter (`:free` suffix).
+ * ALL models MUST support tool/function calling for queryDatabase.
  */
 export const METIS_MODELS = [
-  {
-    id: "moonshotai/kimi-k2.5",
-    name: "Kimi K2.5",
-    provider: "Moonshot AI",
-    free: true,
-  },
   {
     id: "google/gemini-2.0-flash-exp:free",
     name: "Gemini 2.0 Flash",
     provider: "Google",
+    free: true,
+  },
+  {
+    id: "nvidia/llama-3.1-nemotron-70b-instruct:free",
+    name: "Nemotron 70B",
+    provider: "NVIDIA",
+    free: true,
+  },
+  {
+    id: "qwen/qwen3-30b-a3b:free",
+    name: "Qwen3 30B",
+    provider: "Alibaba",
     free: true,
   },
   {
