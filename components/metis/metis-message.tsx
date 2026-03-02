@@ -18,6 +18,11 @@ function formatWIB(date?: Date | string): string {
   });
 }
 
+// ── Strip <think>…</think> reasoning blocks (MiniMax M2.5) ──
+function hideThinkTags(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+}
+
 // ── Elapsed timer hook ──
 function useElapsed(active: boolean): number {
   const [elapsed, setElapsed] = useState(0);
@@ -160,7 +165,7 @@ export function MetisMessage({ message, isStreaming }: MetisMessageProps) {
                       ),
                     }}
                   >
-                    {part.text}
+                    {hideThinkTags(part.text)}
                   </ReactMarkdown>
                 </div>
               );
