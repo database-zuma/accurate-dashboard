@@ -21,6 +21,7 @@ export function buildSystemPrompt(dashboardContext?: {
     sku: `User lagi di tab SKU CHART (chart per artikel). Bisa langsung jawab level ARTIKEL — artikel mana top/bottom, trend per artikel, dll.`,
     detail: `User lagi di tab DETAIL (KODE) — tabel detail per artikel. Langsung deep dive artikel-level, kode_mix, performa per artikel.`,
     "detail-size": `User lagi di tab DETAIL SIZE (KODE BESAR) — tabel detail per size. Langsung deep dive size-level, breakdown per ukuran.`,
+    "detail-monthly": `User lagi di tab DETAIL KODE BESAR PER MONTH — tabel penjualan per kode_besar dibreakdown per bulan. Kolom tersedia: Year (tahun), Month Number (urutan bulan 1-12), Month Name (nama bulan), Store (toko), Kode Besar (kode artikel), Article, Gender, Series, Color, Tipe, Tier, Qty (pairs terjual), Revenue (total), ASP/avg_price. Langsung deep dive monthly trend — artikel mana naik/turun per bulan, seasonal pattern, MoM comparison, bulan mana yang peak/trough per artikel.`,
   };
 
   const contextSection = dashboardContext

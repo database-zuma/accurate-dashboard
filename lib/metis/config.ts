@@ -3,26 +3,27 @@
  * Models are tried in order. If one fails, next is used automatically.
  * All models MUST support tool/function calling for queryDatabase.
  *
- * NOTE: OpenRouter free tier (:free) does NOT support tool calling.
- * Using ultra-cheap paid models instead (~$0.0005/query = $0.50 per 1000 queries).
+ * Provider: MiniMax.io (Coding Plan)
+ * Base URL: https://api.minimax.io/v1 (OpenAI-compatible)
+ * Models: MiniMax-M2.5 (primary), MiniMax-M2.1 (fallback), MiniMax-M2.1-highspeed (last resort)
  */
 export const METIS_MODELS = [
   {
-    id: "deepseek/deepseek-chat-v3-0324",
-    name: "DeepSeek V3",
-    provider: "DeepSeek",
+    id: "MiniMax-M2.5",
+    name: "MiniMax M2.5",
+    provider: "MiniMax",
     free: false,
   },
   {
-    id: "google/gemini-2.0-flash-001",
-    name: "Gemini 2.0 Flash",
-    provider: "Google",
+    id: "MiniMax-M2.1",
+    name: "MiniMax M2.1",
+    provider: "MiniMax",
     free: false,
   },
   {
-    id: "qwen/qwen3-235b-a22b",
-    name: "Qwen3 235B",
-    provider: "Alibaba",
+    id: "MiniMax-M2.1-highspeed",
+    name: "MiniMax M2.1 Highspeed",
+    provider: "MiniMax",
     free: false,
   },
 ] as const;
