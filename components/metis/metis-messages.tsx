@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useCallback } from "react";
 import { type UIMessage } from "ai";
 import { MetisMessage } from "./metis-message";
 import { Sparkles } from "lucide-react";
@@ -12,9 +12,25 @@ interface MetisMessagesProps {
 
 export function MetisMessages({ messages, isLoading }: MetisMessagesProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const userScrolledUp = useRef(false);
 
+  // Detect if user manually scrolled away from bottom
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    // "Near bottom" = within 80px of the bottom edge
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    userScrolledUp.current = !nearBottom;
+  }, []);
+
+  // Auto-scroll only if user hasn't scrolled up
+  // Reset scroll lock when user sends a new message (last msg is user)
   useEffect(() => {
-    if (scrollRef.current) {
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg?.role === "user") {
+      userScrolledUp.current = false;
+    }
+    if (scrollRef.current && !userScrolledUp.current) {
       scrollRef.current.scrollTo({
         top: scrollRef.current.scrollHeight,
         behavior: "smooth",
@@ -61,7 +77,7 @@ export function MetisMessages({ messages, isLoading }: MetisMessagesProps) {
   }
 
   return (
-    <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3">
+    <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-3 space-y-3">
       {messages.map((message, idx) => {
         const isLastAssistant =
           idx === messages.length - 1 && message.role === "assistant";
