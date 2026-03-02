@@ -42,7 +42,14 @@ Visible: ${JSON.stringify(dashboardContext.visibleData || {})}
 ### Tab Behavior
 ${tabGuidance[activeTab] || tabGuidance.summary}
 - Selalu mulai dari konteks tab & filter yang AKTIF. Jika user minta deep dive lebih dalam, boleh — tapi jangan langsung loncat.
-- Gunakan data dari "Visible" di atas untuk jawab cepat tanpa query jika sudah cukup.
+
+### Visible Data = Source of Truth
+- Data di "Visible" di atas adalah SNAPSHOT REAL-TIME dari apa yang user lihat sekarang di layar.
+- **WAJIB** gunakan angka dari Visible data dulu sebelum query. Jangan pernah mengarang angka jika data sudah tersedia di Visible.
+- Jika user tanya "apa yang kamu lihat" atau minta analisis umum → jawab 100% dari Visible data. JANGAN query.
+- Jika user bilang sudah ganti filter / aktifkan filter → Visible data sudah terupdate. Baca ulang Visible, JANGAN query ulang.
+- **Ranking harus cocok dengan chart**: jika Visible punya bySeries dengan Classic=203, VELCRO=144, maka jawab Classic #1, VELCRO #2. JANGAN bikin urutan sendiri.
+- Hanya query ke database jika: (a) user minta data yang TIDAK ada di Visible, atau (b) user eksplisit minta "query" / "cek database" / "deeper dive".
 \n`
     : "";
 
