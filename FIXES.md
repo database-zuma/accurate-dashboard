@@ -26,6 +26,11 @@
 | 14 | DB | 30 store types mapping to branch `NULL`/Unknown | Fix view JOIN + insert 30 rows into `portal.store` | DB-only |
 | 15 | DB | `refresh_accurate_marts()` unusable by app user | Add `SECURITY DEFINER`, set owner to `postgres` | DB-only |
 | 16 | API | Search box `q` param ignored by dashboard API | Add `q` ILIKE to `buildMvFilters` + store filter block | `64390d4` |
+| 17 | Metis AI | Metis switched to MiniMax M2.5 provider | Replace OpenRouter with MiniMax Coding Plan API | `bf8d59b` |
+| 18 | Metis AI | `<think>` tags from MiniMax M2.5 shown raw in chat | `hideThinkTags()` strips before render | `bf8d59b` |
+| 19 | Metis AI | Metis analyzed branch data on SKU Charts tab (no branch chart there) | Tab-aware `visibleDataSummary` + explicit SKU tab guidance | `1e0290c` |
+| 20 | Metis AI | Chinese characters (CJK) leaked into Metis responses | System prompt anti-CJK rule + frontend `cleanResponse()` regex strip | `1e0290c` |
+| 21 | Metis AI | Context bar missing `detail-monthly` tab label | Add `"detail-monthly": "Detail Monthly"` to tabLabels | `1e0290c` |
 
 ---
 
@@ -521,4 +526,137 @@ Then insert into `portal.store` and run `SELECT mart.refresh_accurate_marts();`.
 
 ---
 
-*Last updated: 2026-02-27 — All fixes above are live in production.*
+### FIX 17 — Metis Switched to MiniMax M2.5 Provider
+
+**Files:** `app/api/metis/chat/route.ts`, `lib/metis/config.ts`, `.env.local`
+**Symptom:** Metis was using OpenRouter (DeepSeek). Needed to switch to MiniMax Coding Plan for cost efficiency.
+**Fix:**
+
+```ts
+// route.ts — MiniMax via OpenAI-compatible endpoint
+const minimax = createOpenAI({
+  apiKey: process.env.MINIMAX_API_KEY!,
+  baseURL: "https://api.minimax.io/v1",
+});
+```
+
+**Env vars:** `MINIMAX_API_KEY=sk-cp-...` (Coding Plan key, set in `.env.local` + Vercel dashboard)
+**Models:** `MiniMax-M2.5` (primary), `MiniMax-M2.5-highspeed` (fallback)
+
+---
+
+### FIX 18 — `<think>` Tags Shown Raw in Metis Chat
+
+**File:** `components/metis/metis-message.tsx`
+**Symptom:** MiniMax M2.5 outputs reasoning in `<think>...</think>` blocks. These were rendered as visible text in the chat UI.
+**Root Cause:** ReactMarkdown rendered the raw `<think>` tags as text since they're not valid Markdown.
+**Fix:** Added `hideThinkTags()` function to strip before render:
+
+```ts
+function hideThinkTags(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+}
+```
+
+> **Note:** Thinking is GOOD (improves output quality). We just hide it from the user. Do NOT add system prompt instructions to suppress thinking.
+
+---
+
+### FIX 19 — Metis Analyzed Branch Data on SKU Charts Tab
+
+**Files:** `app/HomeInner.tsx`, `lib/metis/system-prompt.ts`
+**Symptom:** When user was on SKU Charts tab, Metis responded with branch analysis ("Bali dominance 47.8%") even though there's NO branch chart on that tab. User expected product-focused analysis (tipe, gender, series, tier, size, price range).
+
+**Root Cause (two-part):**
+
+**Part A — `visibleDataSummary` was NOT tab-aware:**
+The `useMemo` in `HomeInner.tsx` always included `byBranch` and `topStores` data regardless of active tab:
+
+```ts
+// BEFORE (broken) — always sends branch data
+visibleDataSummary = {
+  kpis, topStores, byBranch, bySeries, byGender, lastUpdate
+};
+```
+
+Metis received branch revenue breakdown → analyzed it even though user couldn't see it.
+
+**Part B — SKU tab guidance too vague:**
+System prompt only said `"User lagi di tab SKU CHART (chart per artikel)"` — no specifics about which charts were visible or what NOT to analyze.
+
+**Fix Part A — Tab-aware `visibleDataSummary`:**
+
+```ts
+// AFTER — per-tab context
+switch (activeTab) {
+  case "summary":
+    return { ...base, topStores, byBranch, bySeries, byGender };
+  case "sku":
+    return { ...base, byTipe, byGender, bySeries, bySize, byPrice, byTier, rankByArticle };
+  case "detail":
+  case "detail-size":
+  case "detail-monthly":
+    return { ...base }; // KPIs only
+}
+```
+
+**Fix Part B — Explicit SKU tab guidance:**
+
+```
+User lagi di tab SKU CHART. Chart yang VISIBLE di layar user:
+- Pie chart: Qty by Tipe (Jepit vs Fashion)
+- Pie chart: Qty by Gender
+- Pie chart: Qty by Series
+- Bar chart: Qty by Size
+- Bar chart: Qty by Price Range (RSP)
+- Bar chart: Qty by Tier
+- Tabel: Rank by Article
+
+⚠️ TIDAK ADA chart Branch di tab ini. JANGAN analisis per-branch kecuali user eksplisit minta.
+```
+
+> **Lesson learned:** Always make `visibleData` tab-aware. Metis will analyze whatever data it receives, even if the user can't see it. Only send data that's actually visible on the current tab.
+
+---
+
+### FIX 20 — Chinese Characters (CJK) Leaked into Metis Responses
+
+**Files:** `lib/metis/system-prompt.ts`, `components/metis/metis-message.tsx`
+**Symptom:** MiniMax M2.5 sometimes injected Chinese characters mid-sentence: "ada返回 (return)", "哪些 artikel", "belum keliatan完整". Model is trained on Chinese data and occasionally code-switches.
+
+**Fix (two layers):**
+
+**Layer 1 — System prompt instruction:**
+```
+HANYA gunakan Bahasa Indonesia dan English. DILARANG KERAS menulis karakter
+China/Mandarin/Jepang/Korea (CJK). Jika terpikir kata dalam bahasa lain,
+tulis dalam Bahasa Indonesia.
+```
+
+**Layer 2 — Frontend regex strip (failsafe):**
+Renamed `hideThinkTags()` → `cleanResponse()` with expanded scope:
+
+```ts
+function cleanResponse(text: string): string {
+  let cleaned = text.replace(/<think>[\s\S]*?<\/think>/gi, "");
+  // Strip CJK characters (Chinese/Japanese/Korean)
+  cleaned = cleaned.replace(/[\u4e00-\u9fff\u3400-\u4dbf\u3000-\u303f\uff00-\uffef]+/g, "");
+  // Clean artifacts: empty parens, double spaces
+  cleaned = cleaned.replace(/\(\s*\)/g, "").replace(/ {2,}/g, " ");
+  return cleaned.trim();
+}
+```
+
+> **Note:** Layer 1 reduces CJK frequency, Layer 2 catches any that slip through. Both are needed.
+
+---
+
+### FIX 21 — Context Bar Missing `detail-monthly` Tab Label
+
+**File:** `components/metis/metis-context-bar.tsx`
+**Symptom:** When on Detail Monthly tab, the Metis context bar showed the raw tab ID `detail-monthly` instead of a human-readable label.
+**Fix:** Added `"detail-monthly": "Detail Monthly"` to `tabLabels` map.
+
+---
+
+*Last updated: 2026-03-03 — All fixes above are live in production.*
