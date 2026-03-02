@@ -34,7 +34,7 @@ export async function POST(req: Request) {
   for (const model of METIS_MODELS) {
     try {
       const result = streamText({
-        model: minimax(model.id),
+        model: minimax.chat(model.id),
         system,
         messages: modelMessages,
         tools: metisTools,
