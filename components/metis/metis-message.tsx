@@ -18,9 +18,15 @@ function formatWIB(date?: Date | string): string {
   });
 }
 
-// ── Strip <think>…</think> reasoning blocks (MiniMax M2.5) ──
-function hideThinkTags(text: string): string {
-  return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+// ── Strip <think>…</think> reasoning blocks + CJK characters (MiniMax M2.5) ──
+function cleanResponse(text: string): string {
+  // Remove <think>...</think> blocks
+  let cleaned = text.replace(/<think>[\s\S]*?<\/think>/gi, "");
+  // Remove stray CJK characters (Chinese/Japanese/Korean) that MiniMax sometimes injects
+  cleaned = cleaned.replace(/[\u4e00-\u9fff\u3400-\u4dbf\u3000-\u303f\uff00-\uffef]+/g, "");
+  // Clean up leftover artifacts: multiple spaces, empty parens, etc.
+  cleaned = cleaned.replace(/\(\s*\)/g, "").replace(/ {2,}/g, " ");
+  return cleaned.trim();
 }
 
 // ── Elapsed timer hook ──
@@ -165,7 +171,7 @@ export function MetisMessage({ message, isStreaming }: MetisMessageProps) {
                       ),
                     }}
                   >
-                    {hideThinkTags(part.text)}
+                    {cleanResponse(part.text)}
                   </ReactMarkdown>
                 </div>
               );

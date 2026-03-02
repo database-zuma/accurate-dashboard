@@ -16,6 +16,7 @@ export function MetisContextBar({ filters, activeTab }: MetisContextBarProps) {
       sku: "SKU Chart",
       detail: "Detail (Kode)",
       "detail-size": "Detail Size",
+      "detail-monthly": "Detail Monthly",
     };
     activeFilters.push(tabLabels[activeTab] || activeTab);
   }

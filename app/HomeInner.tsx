@@ -136,15 +136,36 @@ export default function HomeInner() {
 
   const visibleDataSummary = useMemo(() => {
     if (!data) return undefined;
-    return {
-      kpis: data.kpis,
-      topStores: data.stores?.slice(0, 5).map(s => ({ name: s.toko, branch: s.branch, revenue: s.revenue, pairs: s.pairs })),
-      byBranch: data.byBranch,
-      bySeries: data.bySeries?.slice(0, 10),
-      byGender: data.byGender,
-      lastUpdate: data.lastUpdate,
-    };
-  }, [data]);
+    // Tab-aware: only send data Metis can see on current tab
+    const base = { kpis: data.kpis, lastUpdate: data.lastUpdate };
+    switch (activeTab) {
+      case "summary":
+        return {
+          ...base,
+          topStores: data.stores?.slice(0, 5).map(s => ({ name: s.toko, branch: s.branch, revenue: s.revenue, pairs: s.pairs })),
+          byBranch: data.byBranch,
+          bySeries: data.bySeries?.slice(0, 10),
+          byGender: data.byGender,
+        };
+      case "sku":
+        return {
+          ...base,
+          byTipe: data.byTipe,
+          byGender: data.byGender,
+          bySeries: data.bySeries?.slice(0, 10),
+          bySize: data.bySize,
+          byPrice: data.byPrice,
+          byTier: data.byTier,
+          rankByArticle: data.rankByArticle?.slice(0, 20),
+        };
+      case "detail":
+      case "detail-size":
+      case "detail-monthly":
+        return { ...base };
+      default:
+        return base;
+    }
+  }, [data, activeTab]);
 
   useEffect(() => {
     setDashboardContext({
