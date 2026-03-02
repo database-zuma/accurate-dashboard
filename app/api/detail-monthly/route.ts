@@ -11,19 +11,88 @@ function parseMulti(sp: URLSearchParams, key: string): string[] {
 }
 
 const ALLOWED_SORT = new Set([
-  "year", "month_num", "month_name", "kode_besar", "pairs", "revenue", "avg_price",
+  "year", "month_num", "month_name",
+  "toko", "kode_besar", "article",
+  "gender", "series", "color", "tipe", "tier",
+  "pairs", "revenue", "avg_price",
 ]);
+
+// Mirrors /api/detail kode_besar mode GROUP BY — adds year/month on top
+const GROUP_BY = `
+  DATE_PART('year',  d.sale_date),
+  DATE_PART('month', d.sale_date),
+  TRIM(TO_CHAR(d.sale_date, 'Month')),
+  d.toko,
+  d.kode_besar,
+  d.article,
+  COALESCE(NULLIF(d.kodemix_gender, ''), 'Unknown'),
+  COALESCE(NULLIF(d.kodemix_series, ''), 'Unknown'),
+  COALESCE(NULLIF(d.kodemix_color,  ''), 'Unknown'),
+  d.tipe,
+  COALESCE(NULLIF(d.tier, 'Unknown'), 'Unknown')
+`;
+
+const SELECT_COLS = `
+  DATE_PART('year',  d.sale_date)::int                      AS year,
+  DATE_PART('month', d.sale_date)::int                      AS month_num,
+  TRIM(TO_CHAR(d.sale_date, 'Month'))                       AS month_name,
+  d.toko,
+  d.kode_besar,
+  d.article,
+  COALESCE(NULLIF(d.kodemix_gender, ''), 'Unknown')         AS gender,
+  COALESCE(NULLIF(d.kodemix_series, ''), 'Unknown')         AS series,
+  COALESCE(NULLIF(d.kodemix_color,  ''), 'Unknown')         AS color,
+  d.tipe,
+  COALESCE(NULLIF(d.tier, 'Unknown'), 'Unknown')            AS tier,
+  SUM(d.pairs)                                              AS pairs,
+  SUM(d.revenue)                                            AS revenue,
+  CASE WHEN SUM(d.pairs) > 0
+       THEN SUM(d.revenue) / SUM(d.pairs) ELSE 0 END        AS avg_price
+`;
+
+function mapRow(r: Record<string, unknown>) {
+  return {
+    year:       Number(r.year),
+    month_num:  Number(r.month_num),
+    month_name: r.month_name  as string,
+    toko:       r.toko        as string,
+    kode_besar: r.kode_besar  as string,
+    article:    r.article     as string,
+    gender:     r.gender      as string,
+    series:     r.series      as string,
+    color:      r.color       as string,
+    tipe:       r.tipe        as string,
+    tier:       r.tier        as string,
+    pairs:      Number(r.pairs),
+    revenue:    Number(r.revenue),
+    avg_price:  Number(r.avg_price),
+  };
+}
 
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const isExport = sp.get("export") === "all";
-  const page  = Math.max(1, parseInt(sp.get("page")  || "1",  10));
-  const limit = Math.min(200, Math.max(1, parseInt(sp.get("limit") || "50", 10)));
+  const page   = Math.max(1, parseInt(sp.get("page")  || "1",  10));
+  const limit  = Math.min(200, Math.max(1, parseInt(sp.get("limit") || "50", 10)));
   const offset = (page - 1) * limit;
 
   const sortRaw = sp.get("sort") || "year";
   const sort    = ALLOWED_SORT.has(sortRaw) ? sortRaw : "year";
   const dir     = sp.get("dir") === "asc" ? "ASC" : "DESC";
+
+  const orderBy =
+    sort === "year"       ? `year ${dir}, month_num DESC` :
+    sort === "month_num"  ? `month_num ${dir}, year DESC` :
+    sort === "month_name" ? `month_name ${dir}` :
+    sort === "toko"       ? `d.toko ${dir}` :
+    sort === "kode_besar" ? `d.kode_besar ${dir}` :
+    sort === "article"    ? `d.article ${dir}` :
+    sort === "gender"     ? `COALESCE(NULLIF(d.kodemix_gender, ''), 'Unknown') ${dir}` :
+    sort === "series"     ? `COALESCE(NULLIF(d.kodemix_series, ''), 'Unknown') ${dir}` :
+    sort === "color"      ? `COALESCE(NULLIF(d.kodemix_color,  ''), 'Unknown') ${dir}` :
+    sort === "tipe"       ? `d.tipe ${dir}` :
+    sort === "tier"       ? `COALESCE(NULLIF(d.tier, 'Unknown'), 'Unknown') ${dir}` :
+    `${sort} ${dir} NULLS LAST`;
 
   try {
     const vals: unknown[] = [];
@@ -35,13 +104,14 @@ export async function GET(req: NextRequest) {
     if (from) { conds.push(`d.sale_date >= $${i++}`); vals.push(from); }
     if (to)   { conds.push(`d.sale_date <= $${i++}`); vals.push(to); }
 
+    // Mirrors filter loop in /api/detail exactly
     for (const [param, col] of [
       ["branch",   "d.branch"],
       ["store",    "d.toko"],
       ["channel",  "d.store_category"],
       ["series",   "COALESCE(NULLIF(d.kodemix_series, ''), 'Unknown')"],
       ["gender",   "COALESCE(NULLIF(d.kodemix_gender, ''), 'Unknown')"],
-      ["tier",     "COALESCE(NULLIF(d.tier, ''), 'Unknown')"],
+      ["tier",     "COALESCE(NULLIF(d.tier, 'Unknown'), 'Unknown')"],
       ["tipe",     "d.tipe"],
       ["version",  "d.version"],
       ["entity",   "d.source_entity"],
@@ -54,6 +124,7 @@ export async function GET(req: NextRequest) {
       vals.push(...fv);
     }
 
+    // Color — mirrors /api/detail
     const colorFv = parseMulti(sp, "color");
     if (colorFv.length) {
       const phs = colorFv.map(() => `$${i++}`).join(", ");
@@ -61,55 +132,21 @@ export async function GET(req: NextRequest) {
       vals.push(...colorFv);
     }
 
-    if (sp.get("excludeNonSku") === "1") {
-      conds.push(`d.is_non_sku = FALSE`);
-    }
+    if (sp.get("excludeNonSku") === "1") conds.push(`d.is_non_sku = FALSE`);
 
     const q = sp.get("q");
     if (q) {
-      conds.push(`(d.kode_besar ILIKE $${i} OR d.article ILIKE $${i})`);
+      conds.push(`(d.kode_besar ILIKE $${i} OR d.article ILIKE $${i} OR d.toko ILIKE $${i})`);
       vals.push(`%${q}%`);
       i++;
     }
 
     const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
 
-    const orderBy =
-      sort === "year"       ? `year ${dir}, month_num ${dir}` :
-      sort === "month_num"  ? `month_num ${dir}, year ${dir}` :
-      sort === "month_name" ? `month_name ${dir}` :
-      sort === "kode_besar" ? `d.kode_besar ${dir}` :
-      `${sort} ${dir} NULLS LAST`;
-
     if (isExport) {
-      const dataSql = `
-        SELECT
-          DATE_PART('year',  d.sale_date)::int            AS year,
-          DATE_PART('month', d.sale_date)::int            AS month_num,
-          TRIM(TO_CHAR(d.sale_date, 'Month'))             AS month_name,
-          d.kode_besar,
-          SUM(d.pairs)   AS pairs,
-          SUM(d.revenue) AS revenue,
-          CASE WHEN SUM(d.pairs) > 0 THEN SUM(d.revenue) / SUM(d.pairs) ELSE 0 END AS avg_price
-        FROM mart.mv_accurate_summary d
-        ${where}
-        GROUP BY
-          DATE_PART('year',  d.sale_date),
-          DATE_PART('month', d.sale_date),
-          TRIM(TO_CHAR(d.sale_date, 'Month')),
-          d.kode_besar
-        ORDER BY ${orderBy}
-      `;
-      const dataRes = await pool.query(dataSql, vals);
-      const rows = dataRes.rows.map((r: Record<string, unknown>) => ({
-        ...r,
-        year:      Number(r.year),
-        month_num: Number(r.month_num),
-        pairs:     Number(r.pairs),
-        revenue:   Number(r.revenue),
-        avg_price: Number(r.avg_price),
-      }));
-      return NextResponse.json({ rows }, { headers: { "Cache-Control": "no-store" } });
+      const sql = `SELECT ${SELECT_COLS} FROM mart.mv_accurate_summary d ${where} GROUP BY ${GROUP_BY} ORDER BY ${orderBy}`;
+      const res  = await pool.query(sql, vals);
+      return NextResponse.json({ rows: res.rows.map(mapRow) }, { headers: { "Cache-Control": "no-store" } });
     }
 
     const countSql = `
@@ -120,29 +157,14 @@ export async function GET(req: NextRequest) {
         SELECT SUM(d.pairs) AS pairs, SUM(d.revenue) AS revenue
         FROM mart.mv_accurate_summary d
         ${where}
-        GROUP BY
-          DATE_PART('year',  d.sale_date),
-          DATE_PART('month', d.sale_date),
-          TRIM(TO_CHAR(d.sale_date, 'Month')),
-          d.kode_besar
+        GROUP BY ${GROUP_BY}
       ) sub
     `;
     const dataSql = `
-      SELECT
-        DATE_PART('year',  d.sale_date)::int            AS year,
-        DATE_PART('month', d.sale_date)::int            AS month_num,
-        TRIM(TO_CHAR(d.sale_date, 'Month'))             AS month_name,
-        d.kode_besar,
-        SUM(d.pairs)   AS pairs,
-        SUM(d.revenue) AS revenue,
-        CASE WHEN SUM(d.pairs) > 0 THEN SUM(d.revenue) / SUM(d.pairs) ELSE 0 END AS avg_price
+      SELECT ${SELECT_COLS}
       FROM mart.mv_accurate_summary d
       ${where}
-      GROUP BY
-        DATE_PART('year',  d.sale_date),
-        DATE_PART('month', d.sale_date),
-        TRIM(TO_CHAR(d.sale_date, 'Month')),
-        d.kode_besar
+      GROUP BY ${GROUP_BY}
       ORDER BY ${orderBy}
       LIMIT $${i} OFFSET $${i + 1}
     `;
@@ -152,26 +174,16 @@ export async function GET(req: NextRequest) {
       pool.query(dataSql, [...vals, limit, offset]),
     ]);
 
-    const countRow = countRes.rows[0] ?? { total: 0, total_pairs: 0, total_revenue: 0 };
+    const countRow     = countRes.rows[0] ?? { total: 0, total_pairs: 0, total_revenue: 0 };
     const total        = Number(countRow.total);
     const totalPairs   = Number(countRow.total_pairs);
     const totalRevenue = Number(countRow.total_revenue);
 
-    const rows = dataRes.rows.map((r: Record<string, unknown>) => ({
-      year:      Number(r.year),
-      month_num: Number(r.month_num),
-      month_name: r.month_name as string,
-      kode_besar: r.kode_besar as string,
-      pairs:     Number(r.pairs),
-      revenue:   Number(r.revenue),
-      avg_price: Number(r.avg_price),
-    }));
-
     return NextResponse.json({
-      rows,
+      rows:   dataRes.rows.map(mapRow),
       total,
       page,
-      pages: Math.ceil(total / limit),
+      pages:  Math.ceil(total / limit),
       totals: { pairs: totalPairs, revenue: totalRevenue },
     }, {
       headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
