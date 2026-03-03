@@ -226,7 +226,6 @@ export async function GET(req: NextRequest) {
         )
         SELECT a.toko, a.branch, a.pairs, a.revenue,
                COALESCE(x.transactions, 0) AS transactions,
-               CASE WHEN COALESCE(x.transactions,0) > 0 THEN a.pairs / x.transactions ELSE 0 END AS atu,
                CASE WHEN a.pairs > 0 THEN a.revenue / a.pairs ELSE 0 END AS asp,
                CASE WHEN COALESCE(x.transactions,0) > 0 THEN a.revenue / x.transactions ELSE 0 END AS atv
         FROM daily_agg a LEFT JOIN txn_agg x ON a.toko = x.toko
@@ -308,7 +307,6 @@ export async function GET(req: NextRequest) {
       revenue,
       pairs,
       transactions,
-      atu: transactions > 0 ? pairs / transactions : 0,
       asp: pairs > 0 ? revenue / pairs : 0,
       atv: transactions > 0 ? revenue / transactions : 0,
     };
@@ -325,7 +323,6 @@ export async function GET(req: NextRequest) {
       pairs: Number(r.pairs),
       revenue: Number(r.revenue),
       transactions: Number(r.transactions),
-      atu: Number(r.atu),
       asp: Number(r.asp),
       atv: Number(r.atv),
     }));

@@ -10,7 +10,6 @@ interface StoreRow {
   pairs: number;
   revenue: number;
   transactions: number;
-  atu: number;
   asp: number;
   atv: number;
 }
@@ -78,12 +77,12 @@ export default function StoreTable({ stores, loading }: { stores?: StoreRow[]; l
               <button
                 type="button"
                 onClick={() => {
-                  const headers = ["#", "Store", "Branch", "Qty", "Revenue", "Txn", "ATU", "ASP", "ATV"];
-                  const keys = ["rank", "toko", "branch", "pairs", "revenue", "transactions", "atu", "asp", "atv"];
+                  const headers = ["#", "Store", "Branch", "Qty", "Revenue", "Txn", "ASP", "ATV"];
+                  const keys = ["rank", "toko", "branch", "pairs", "revenue", "transactions", "asp", "atv"];
                   const rows: Record<string, unknown>[] = sortedStores.map((s, idx) => ({
                     rank: idx + 1, toko: s.toko, branch: s.branch, pairs: s.pairs,
                     revenue: s.revenue, transactions: s.transactions,
-                    atu: Number(s.atu.toFixed(1)), asp: Math.round(s.asp), atv: Math.round(s.atv),
+                    asp: Math.round(s.asp), atv: Math.round(s.atv),
                   }));
                   downloadCSV(toCSV(headers, rows, keys), "store_performance.csv");
                 }}
@@ -94,12 +93,12 @@ export default function StoreTable({ stores, loading }: { stores?: StoreRow[]; l
               <button
                 type="button"
                 onClick={() => {
-                  const headers = ["#", "Store", "Branch", "Qty", "Revenue", "Txn", "ATU", "ASP", "ATV"];
-                  const keys = ["rank", "toko", "branch", "pairs", "revenue", "transactions", "atu", "asp", "atv"];
+                  const headers = ["#", "Store", "Branch", "Qty", "Revenue", "Txn", "ASP", "ATV"];
+                  const keys = ["rank", "toko", "branch", "pairs", "revenue", "transactions", "asp", "atv"];
                   const rows: Record<string, unknown>[] = sortedStores.map((s, idx) => ({
                     rank: idx + 1, toko: s.toko, branch: s.branch, pairs: s.pairs,
                     revenue: s.revenue, transactions: s.transactions,
-                    atu: Number(s.atu.toFixed(1)), asp: Math.round(s.asp), atv: Math.round(s.atv),
+                    asp: Math.round(s.asp), atv: Math.round(s.atv),
                   }));
                   void downloadXLSX(headers, rows, keys, "store_performance.xlsx");
                 }}
@@ -126,7 +125,7 @@ export default function StoreTable({ stores, loading }: { stores?: StoreRow[]; l
               <th className={thRight} onClick={() => handleSort("pairs")}>Qty{si("pairs")}</th>
               <th className={thRight} onClick={() => handleSort("revenue")}>Revenue{si("revenue")}</th>
               <th className={thRight} onClick={() => handleSort("transactions")}>Txn{si("transactions")}</th>
-              <th className={thRight} onClick={() => handleSort("atu")}>ATU{si("atu")}</th>
+              <th className={thRight} onClick={() => handleSort("asp")}>ASP{si("asp")}</th>
               <th className={thRight} onClick={() => handleSort("asp")}>ASP{si("asp")}</th>
               <th className={thRight} onClick={() => handleSort("atv")}>ATV{si("atv")}</th>
             </tr>
@@ -135,7 +134,7 @@ export default function StoreTable({ stores, loading }: { stores?: StoreRow[]; l
             {loading ? (
               Array.from({ length: 8 }, (_, i) => (
                 <tr key={`skel-${String(i)}`} className="border-b border-border/50">
-                  {Array.from({ length: 9 }, (_, j) => (
+                  {Array.from({ length: 8 }, (_, j) => (
                     <td key={`sc-${String(j)}`} className="px-3 py-2.5">
                       <div className="h-3 bg-muted animate-pulse rounded-sm w-full" />
                     </td>
@@ -153,7 +152,6 @@ export default function StoreTable({ stores, loading }: { stores?: StoreRow[]; l
                     <td className="px-3 py-2.5 text-right tabular-nums text-xs">{Math.round(s.pairs).toLocaleString("en-US")}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-xs">{fmtRp(s.revenue)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-xs text-muted-foreground">{s.transactions.toLocaleString("en-US")}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-xs text-muted-foreground">{s.atu.toFixed(1)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-xs text-muted-foreground">{fmtRp(s.asp)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-xs text-muted-foreground">{fmtRp(s.atv)}</td>
                   </tr>
@@ -161,7 +159,7 @@ export default function StoreTable({ stores, loading }: { stores?: StoreRow[]; l
               })
             ) : (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground text-xs">No data</td>
+                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground text-xs">No data</td>
               </tr>
             )}
           </tbody>
@@ -169,7 +167,6 @@ export default function StoreTable({ stores, loading }: { stores?: StoreRow[]; l
             const totQty = stores.reduce((s, r) => s + r.pairs, 0);
             const totRev = stores.reduce((s, r) => s + r.revenue, 0);
             const totTxn = stores.reduce((s, r) => s + r.transactions, 0);
-            const avgAtu = totTxn > 0 ? totQty / totTxn : 0;
             const avgAsp = totQty > 0 ? totRev / totQty : 0;
             const avgAtv = totTxn > 0 ? totRev / totTxn : 0;
             return (
@@ -179,7 +176,6 @@ export default function StoreTable({ stores, loading }: { stores?: StoreRow[]; l
                   <td className="px-3 py-2.5 text-right tabular-nums text-xs font-bold text-foreground">{Math.round(totQty).toLocaleString("en-US")}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums text-xs font-bold text-foreground">{fmtRp(totRev)}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums text-xs font-bold text-foreground">{totTxn.toLocaleString("en-US")}</td>
-                  <td className="px-3 py-2.5 text-right tabular-nums text-xs font-bold text-muted-foreground">{avgAtu.toFixed(1)}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums text-xs font-bold text-muted-foreground">{fmtRp(avgAsp)}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums text-xs font-bold text-muted-foreground">{fmtRp(avgAtv)}</td>
                 </tr>

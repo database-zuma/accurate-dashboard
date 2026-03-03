@@ -4,7 +4,6 @@ interface KpiData {
   revenue: number;
   pairs: number;
   transactions: number;
-  atu: number;
   asp: number;
   atv: number;
 }
@@ -25,14 +24,13 @@ const CARDS = [
   { label: "Revenue", key: "revenue" as const, type: "currency" as const },
   { label: "Pairs Sold", key: "pairs" as const, type: "int" as const },
   { label: "Transactions", key: "transactions" as const, type: "int" as const },
-  { label: "ATU", key: "atu" as const, type: "decimal" as const, tooltip: "Avg Transaction Unit = Pairs / Transactions" },
   { label: "ASP", key: "asp" as const, type: "currency" as const, tooltip: "Avg Selling Price = Revenue / Pairs" },
   { label: "ATV", key: "atv" as const, type: "currency" as const, tooltip: "Avg Transaction Value = Revenue / Transactions" },
 ];
 
 export default function KpiCards({ kpis, loading }: { kpis?: KpiData; loading?: boolean }) {
   return (
-    <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+    <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
       {CARDS.map(({ label, key, type, tooltip }) => (
         <div
           key={key}

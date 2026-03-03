@@ -27,7 +27,6 @@ interface DashboardData {
     revenue: number;
     pairs: number;
     transactions: number;
-    atu: number;
     asp: number;
     atv: number;
   };
@@ -39,7 +38,6 @@ interface DashboardData {
     pairs: number;
     revenue: number;
     transactions: number;
-    atu: number;
     asp: number;
     atv: number;
   }[];
