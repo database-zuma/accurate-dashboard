@@ -3,9 +3,10 @@ import { NextRequest } from "next/server";
 
 /**
  * GET /api/metis/sessions?dashboard=accurate-sales&uid=u-xxx
- * Returns ALL sessions for this user+dashboard (newest first), max 50
+ * Returns sessions for this user+dashboard (newest first), max 50.
+ * uid comes from a durable cookie+localStorage fingerprint on the client.
  */
-export async function GET(req: NextRequest) {
+ export async function GET(req: NextRequest) {
   const dashboard = req.nextUrl.searchParams.get("dashboard") || "accurate-sales";
   const uid = req.nextUrl.searchParams.get("uid") || "";
 

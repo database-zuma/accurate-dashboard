@@ -15,15 +15,22 @@ import { PRIMARY_MODEL, getModelDisplayName } from "@/lib/metis/config";
 const DASHBOARD_ID = "accurate-sales";
 
 // ── User fingerprint ──────────────────────────────────
-// Simple browser fingerprint — persisted in localStorage so the same browser
-// always gets the same ID. No login needed.
+// Persisted in BOTH cookie + localStorage for durability.
+// Cookie survives localStorage clears; localStorage survives cookie clears.
 function getUserFingerprint(): string {
   const KEY = "metis-uid";
-  let uid = localStorage.getItem(KEY);
+  // Try cookie first (most durable across deploys)
+  const cookieMatch = document.cookie.match(new RegExp(`(?:^|; )${KEY}=([^;]+)`));
+  const fromCookie = cookieMatch?.[1] || "";
+  const fromStorage = localStorage.getItem(KEY) || "";
+  // Use whichever exists, prefer cookie
+  let uid = fromCookie || fromStorage;
   if (!uid) {
     uid = `u-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-    localStorage.setItem(KEY, uid);
   }
+  // Sync both stores
+  localStorage.setItem(KEY, uid);
+  document.cookie = `${KEY}=${uid}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
   return uid;
 }
 
