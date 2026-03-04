@@ -21,7 +21,8 @@ const minimax = createOpenAI({
  * but edge cases (first load, serialization) may strip them.
  */
 function normalizeMessages(raw: unknown[]): UIMessage[] {
-  return raw.map((msg: Record<string, unknown>, i: number) => {
+  return raw.map((rawMsg, i) => {
+    const msg = rawMsg as Record<string, unknown>;
     // Already has parts — pass through
     if (Array.isArray(msg.parts) && msg.parts.length > 0) {
       return msg as unknown as UIMessage;
