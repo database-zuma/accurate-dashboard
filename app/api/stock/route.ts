@@ -16,9 +16,9 @@ export async function GET() {
         tier,
         quantity as qty_on_hand,
         nama_gudang as store
-      FROM fact_stock_unified
+      FROM stock_today
       WHERE quantity > 0
-      ORDER BY store, product_name, ukuran
+      ORDER BY nama_gudang, product_name, ukuran
       LIMIT 5000
     `);
     
