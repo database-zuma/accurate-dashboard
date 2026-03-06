@@ -4,13 +4,14 @@ import pool from "@/lib/db";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-const CONSIG_FILTER = `nama_departemen ILIKE ANY(ARRAY['%pepito%','%aeon%','%bintang%','%grand lucky%','%omosando%','%clandys%','%sogo%','%ciluba%','%royal surf%','%bali united%','%sonobebe%'])`;
+const CONSIG_FILTER = `nama_departemen ILIKE ANY(ARRAY['%pepito%','%aeon%','%bintang%','%grandlucky%','%omosando%','%clandy%','%sogo%','%ciluba%','%royal surf%','%bali united%','%sonobebe%'])`;
 
 const AREA_CASE = `
   CASE
     WHEN nama_departemen ILIKE '%aeon%' THEN 'Jakarta'
     WHEN nama_departemen ILIKE '%omosando%' THEN 'Jakarta'
     WHEN nama_departemen ILIKE '%sonobebe%' THEN 'Jakarta'
+    WHEN nama_departemen ILIKE '%grandlucky%' THEN 'Jakarta'
     WHEN nama_departemen ILIKE '%royal surf%' THEN 'Lombok'
     WHEN nama_departemen ILIKE '%lombok%' THEN 'Lombok'
     WHEN nama_departemen ILIKE '%ciluba%' THEN 'Jatim'
@@ -24,9 +25,9 @@ const PARTNER_CASE = `
     WHEN nama_departemen ILIKE '%sogo%' THEN 'Sogo'
     WHEN nama_departemen ILIKE '%aeon%' THEN 'AEON'
     WHEN nama_departemen ILIKE '%bintang%' THEN 'Bintang'
-    WHEN nama_departemen ILIKE '%grand lucky%' THEN 'Grand Lucky'
+    WHEN nama_departemen ILIKE '%grandlucky%' THEN 'Grand Lucky'
     WHEN nama_departemen ILIKE '%omosando%' THEN 'Omosando'
-    WHEN nama_departemen ILIKE '%clandys%' THEN 'Clandys'
+    WHEN nama_departemen ILIKE '%clandy%' THEN 'Clandys'
     WHEN nama_departemen ILIKE '%ciluba%' THEN 'Cilubaa'
     WHEN nama_departemen ILIKE '%royal surf%' THEN 'Royal Surf'
     WHEN nama_departemen ILIKE '%bali united%' THEN 'Bali United'
