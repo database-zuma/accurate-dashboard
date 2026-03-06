@@ -8,8 +8,12 @@ const CONSIG_FILTER = `nama_departemen ILIKE ANY(ARRAY['%pepito%','%aeon%','%bin
 
 const AREA_CASE = `
   CASE
-    WHEN nama_departemen ILIKE '%aeon%' OR nama_departemen ILIKE '%jakarta%' THEN 'Jakarta'
+    WHEN nama_departemen ILIKE '%aeon%' THEN 'Jakarta'
+    WHEN nama_departemen ILIKE '%omosando%' THEN 'Jakarta'
+    WHEN nama_departemen ILIKE '%sonobebe%' THEN 'Jakarta'
+    WHEN nama_departemen ILIKE '%royal surf%' THEN 'Lombok'
     WHEN nama_departemen ILIKE '%lombok%' THEN 'Lombok'
+    WHEN nama_departemen ILIKE '%ciluba%' THEN 'Jatim'
     ELSE 'Bali'
   END
 `;
@@ -45,7 +49,7 @@ export async function GET(req: NextRequest) {
         COUNT(DISTINCT kode_produk) as total_sku,
         SUM(kuantitas) as total_qty,
         ROUND(SUM(total_harga)) as total_sales,
-        COUNT(DISTINCT COALESCE(NULLIF(nama_gudang, ''), nama_departemen)) as total_stores
+        COUNT(DISTINCT nama_gudang) FILTER (WHERE nama_gudang IS NOT NULL AND nama_gudang != '') as total_stores
       FROM raw.accurate_sales_ddd
       WHERE ${CONSIG_FILTER}
       AND tanggal::date BETWEEN $1 AND $2
@@ -53,26 +57,25 @@ export async function GET(req: NextRequest) {
       ORDER BY total_sales DESC
     `, [from, to]);
 
-    // Summary per partner (clean names)
+    // Summary per partner — merged (Pepito = 1 row, not split by area)
     const partnerQ = pool.query(`
       SELECT 
         ${PARTNER_CASE} as partner,
-        ${AREA_CASE} as area,
         COUNT(DISTINCT kode_produk) as total_sku,
         SUM(kuantitas) as total_qty,
         ROUND(SUM(total_harga)) as total_sales,
-        COUNT(DISTINCT COALESCE(NULLIF(nama_gudang, ''), nama_departemen)) as total_stores
+        COUNT(DISTINCT nama_gudang) FILTER (WHERE nama_gudang IS NOT NULL AND nama_gudang != '') as total_stores
       FROM raw.accurate_sales_ddd
       WHERE ${CONSIG_FILTER}
       AND tanggal::date BETWEEN $1 AND $2
-      GROUP BY ${PARTNER_CASE}, ${AREA_CASE}
+      GROUP BY ${PARTNER_CASE}
       ORDER BY total_sales DESC
     `, [from, to]);
 
-    // Breakdown per store with partner + area
+    // Breakdown per store with partner + area (exclude NULL nama_gudang rows)
     const storeQ = pool.query(`
       SELECT 
-        COALESCE(NULLIF(nama_gudang, ''), nama_departemen) as store_name,
+        nama_gudang as store_name,
         ${PARTNER_CASE} as partner,
         ${AREA_CASE} as area,
         SUM(kuantitas) as qty,
@@ -81,7 +84,8 @@ export async function GET(req: NextRequest) {
       FROM raw.accurate_sales_ddd
       WHERE ${CONSIG_FILTER}
       AND tanggal::date BETWEEN $1 AND $2
-      GROUP BY COALESCE(NULLIF(nama_gudang, ''), nama_departemen), ${PARTNER_CASE}, ${AREA_CASE}
+      AND nama_gudang IS NOT NULL AND nama_gudang != ''
+      GROUP BY nama_gudang, ${PARTNER_CASE}, ${AREA_CASE}
       ORDER BY sales DESC
     `, [from, to]);
 
