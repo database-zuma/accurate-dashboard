@@ -14,17 +14,34 @@ const AREA_CASE = `
   END
 `;
 
+const PARTNER_CASE = `
+  CASE
+    WHEN nama_departemen ILIKE '%pepito%' THEN 'Pepito'
+    WHEN nama_departemen ILIKE '%sogo%' THEN 'Sogo'
+    WHEN nama_departemen ILIKE '%aeon%' THEN 'AEON'
+    WHEN nama_departemen ILIKE '%bintang%' THEN 'Bintang'
+    WHEN nama_departemen ILIKE '%grand lucky%' THEN 'Grand Lucky'
+    WHEN nama_departemen ILIKE '%omosando%' THEN 'Omosando'
+    WHEN nama_departemen ILIKE '%clandys%' THEN 'Clandys'
+    WHEN nama_departemen ILIKE '%ciluba%' THEN 'Cilubaa'
+    WHEN nama_departemen ILIKE '%royal surf%' THEN 'Royal Surf'
+    WHEN nama_departemen ILIKE '%bali united%' THEN 'Bali United'
+    WHEN nama_departemen ILIKE '%sonobebe%' THEN 'Sonobebe'
+    ELSE nama_departemen
+  END
+`;
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const from = searchParams.get("from") || "2026-01-01";
     const to = searchParams.get("to") || new Date().toISOString().slice(0, 10);
 
-    // Summary per area (derived from nama_departemen)
+    // Summary per area
     const areaQ = pool.query(`
       SELECT 
         ${AREA_CASE} as area,
-        COUNT(DISTINCT nama_departemen) as total_partners,
+        COUNT(DISTINCT ${PARTNER_CASE}) as total_partners,
         COUNT(DISTINCT kode_produk) as total_sku,
         SUM(kuantitas) as total_qty,
         ROUND(SUM(total_harga)) as total_sales,
@@ -36,10 +53,27 @@ export async function GET(req: NextRequest) {
       ORDER BY total_sales DESC
     `, [from, to]);
 
-    // Breakdown per store (nama_gudang) with area
+    // Summary per partner (clean names)
+    const partnerQ = pool.query(`
+      SELECT 
+        ${PARTNER_CASE} as partner,
+        ${AREA_CASE} as area,
+        COUNT(DISTINCT kode_produk) as total_sku,
+        SUM(kuantitas) as total_qty,
+        ROUND(SUM(total_harga)) as total_sales,
+        COUNT(DISTINCT COALESCE(NULLIF(nama_gudang, ''), nama_departemen)) as total_stores
+      FROM raw.accurate_sales_ddd
+      WHERE ${CONSIG_FILTER}
+      AND tanggal::date BETWEEN $1 AND $2
+      GROUP BY ${PARTNER_CASE}, ${AREA_CASE}
+      ORDER BY total_sales DESC
+    `, [from, to]);
+
+    // Breakdown per store with partner + area
     const storeQ = pool.query(`
       SELECT 
         COALESCE(NULLIF(nama_gudang, ''), nama_departemen) as store_name,
+        ${PARTNER_CASE} as partner,
         ${AREA_CASE} as area,
         SUM(kuantitas) as qty,
         ROUND(SUM(total_harga)) as sales,
@@ -47,7 +81,7 @@ export async function GET(req: NextRequest) {
       FROM raw.accurate_sales_ddd
       WHERE ${CONSIG_FILTER}
       AND tanggal::date BETWEEN $1 AND $2
-      GROUP BY COALESCE(NULLIF(nama_gudang, ''), nama_departemen), ${AREA_CASE}
+      GROUP BY COALESCE(NULLIF(nama_gudang, ''), nama_departemen), ${PARTNER_CASE}, ${AREA_CASE}
       ORDER BY sales DESC
     `, [from, to]);
 
@@ -79,7 +113,7 @@ export async function GET(req: NextRequest) {
       ORDER BY month
     `, [from, to]);
 
-    const [areas, stores, products, trend] = await Promise.all([areaQ, storeQ, productQ, trendQ]);
+    const [areas, partners, stores, products, trend] = await Promise.all([areaQ, partnerQ, storeQ, productQ, trendQ]);
 
     // Calculate grand totals
     const grandTotal = areas.rows.reduce((acc: any, r: any) => ({
@@ -91,6 +125,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       grand_total: grandTotal,
       areas: areas.rows,
+      partners: partners.rows,
       stores: stores.rows,
       top_products: products.rows,
       monthly_trend: trend.rows,
