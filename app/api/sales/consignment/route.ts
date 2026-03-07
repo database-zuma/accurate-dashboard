@@ -117,7 +117,25 @@ export async function GET(req: NextRequest) {
       ORDER BY month
     `, [from, to]);
 
-    const [areas, partners, stores, products, trend] = await Promise.all([areaQ, partnerQ, storeQ, productQ, trendQ]);
+    // Top 1 article per partner
+    const topArticleQ = pool.query(`
+      SELECT partner, sku, product_name, qty, sales FROM (
+        SELECT
+          ${PARTNER_CASE} as partner,
+          kode_produk as sku,
+          nama_barang as product_name,
+          SUM(kuantitas) as qty,
+          ROUND(SUM(total_harga)) as sales,
+          ROW_NUMBER() OVER (PARTITION BY ${PARTNER_CASE} ORDER BY SUM(total_harga) DESC) as rn
+        FROM raw.accurate_sales_ddd
+        WHERE ${CONSIG_FILTER}
+        AND tanggal::date BETWEEN $1 AND $2
+        GROUP BY ${PARTNER_CASE}, kode_produk, nama_barang
+      ) sub WHERE rn = 1
+      ORDER BY sales DESC
+    `, [from, to]);
+
+    const [areas, partners, stores, products, trend, topArticles] = await Promise.all([areaQ, partnerQ, storeQ, productQ, trendQ, topArticleQ]);
 
     // Calculate grand totals
     const grandTotal = areas.rows.reduce((acc: any, r: any) => ({
@@ -126,10 +144,20 @@ export async function GET(req: NextRequest) {
       total_sku: (acc.total_sku || 0) + Number(r.total_sku),
     }), {});
 
+    // Build top article map
+    const topArtMap: Record<string, any> = {};
+    topArticles.rows.forEach((r: any) => { topArtMap[r.partner] = r; });
+
+    // Attach top_article to each partner + compute total stores
+    const partnersWithArt = partners.rows.map((p: any) => ({
+      ...p,
+      top_article: topArtMap[p.partner] || null,
+    }));
+
     return NextResponse.json({
-      grand_total: grandTotal,
+      grand_total: { ...grandTotal, total_stores: stores.rows.length },
       areas: areas.rows,
-      partners: partners.rows,
+      partners: partnersWithArt,
       stores: stores.rows,
       top_products: products.rows,
       monthly_trend: trend.rows,
