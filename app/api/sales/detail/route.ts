@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
     for (const [param, col] of [
       ["branch",  "d.branch"],
       ["store",   "d.toko"],
-      ["channel", "d.store_category"],
+      ["channel", "UPPER(d.store_category)"],
       ["series",  "COALESCE(NULLIF(d.kodemix_series, ''), 'Unknown')"],
       ["gender",  "COALESCE(NULLIF(d.kodemix_gender, ''), 'Unknown')"],
       ["tier",    "COALESCE(NULLIF(d.kodemix_tier, ''), 'Unknown')"],
@@ -56,9 +56,10 @@ export async function GET(req: NextRequest) {
     ] as [string, string][]) {
       const fv = parseMulti(sp, param);
       if (!fv.length) continue;
-      const phs = fv.map(() => `$${i++}`).join(", ");
+      const mapped = param === "channel" ? fv.map(v => v.toUpperCase()) : fv;
+      const phs = mapped.map(() => `$${i++}`).join(", ");
       conds.push(`${col} IN (${phs})`);
-      vals.push(...fv);
+      vals.push(...mapped);
     }
 
     const colorFv = parseMulti(sp, "color");
