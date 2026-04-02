@@ -12,8 +12,8 @@ function parseMulti(sp: URLSearchParams, key: string): string[] {
 
 const ALLOWED_SORT = new Set([
   "year", "month_num", "month_name",
-  "toko", "kode_besar", "article",
-  "gender", "series", "color", "tipe", "tier",
+  "branch", "toko", "kode_besar", "kode_kecil", "size",
+  "article", "gender", "series", "color", "tipe", "tier",
   "pairs", "revenue", "avg_price",
 ]);
 
@@ -22,8 +22,11 @@ const GROUP_BY = `
   DATE_PART('year',  d.sale_date),
   DATE_PART('month', d.sale_date),
   TRIM(TO_CHAR(d.sale_date, 'Month')),
+  COALESCE(d.branch, 'Unknown'),
   d.toko,
   d.kode_besar,
+  COALESCE(d.kode, ''),
+  COALESCE(d.size, ''),
   d.article,
   COALESCE(NULLIF(d.kodemix_gender, ''), 'Unknown'),
   COALESCE(NULLIF(d.kodemix_series, ''), 'Unknown'),
@@ -36,8 +39,11 @@ const SELECT_COLS = `
   DATE_PART('year',  d.sale_date)::int                      AS year,
   DATE_PART('month', d.sale_date)::int                      AS month_num,
   TRIM(TO_CHAR(d.sale_date, 'Month'))                       AS month_name,
+  COALESCE(d.branch, 'Unknown')                             AS branch,
   d.toko,
   d.kode_besar,
+  COALESCE(d.kode, '')                                      AS kode_kecil,
+  COALESCE(d.size, '')                                      AS size,
   d.article,
   COALESCE(NULLIF(d.kodemix_gender, ''), 'Unknown')         AS gender,
   COALESCE(NULLIF(d.kodemix_series, ''), 'Unknown')         AS series,
@@ -54,15 +60,18 @@ function mapRow(r: Record<string, unknown>) {
   return {
     year:       Number(r.year),
     month_num:  Number(r.month_num),
-    month_name: r.month_name  as string,
-    toko:       r.toko        as string,
-    kode_besar: r.kode_besar  as string,
-    article:    r.article     as string,
-    gender:     r.gender      as string,
-    series:     r.series      as string,
-    color:      r.color       as string,
-    tipe:       r.tipe        as string,
-    tier:       r.tier        as string,
+    month_name: r.month_name   as string,
+    branch:     r.branch       as string,
+    toko:       r.toko         as string,
+    kode_besar: r.kode_besar   as string,
+    kode_kecil: r.kode_kecil   as string,
+    size:       r.size         as string,
+    article:    r.article      as string,
+    gender:     r.gender       as string,
+    series:     r.series       as string,
+    color:      r.color        as string,
+    tipe:       r.tipe         as string,
+    tier:       r.tier         as string,
     pairs:      Number(r.pairs),
     revenue:    Number(r.revenue),
     avg_price:  Number(r.avg_price),
@@ -84,8 +93,11 @@ export async function GET(req: NextRequest) {
     sort === "year"       ? `year ${dir}, month_num DESC` :
     sort === "month_num"  ? `month_num ${dir}, year DESC` :
     sort === "month_name" ? `month_name ${dir}` :
+    sort === "branch"     ? `COALESCE(d.branch, 'Unknown') ${dir}` :
     sort === "toko"       ? `d.toko ${dir}` :
     sort === "kode_besar" ? `d.kode_besar ${dir}` :
+    sort === "kode_kecil" ? `COALESCE(d.kode, '') ${dir}` :
+    sort === "size"       ? `COALESCE(d.size, '') ${dir}` :
     sort === "article"    ? `d.article ${dir}` :
     sort === "gender"     ? `COALESCE(NULLIF(d.kodemix_gender, ''), 'Unknown') ${dir}` :
     sort === "series"     ? `COALESCE(NULLIF(d.kodemix_series, ''), 'Unknown') ${dir}` :

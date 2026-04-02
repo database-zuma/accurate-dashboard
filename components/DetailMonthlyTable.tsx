@@ -12,8 +12,11 @@ interface MonthlyRow {
   year: number;
   month_num: number;
   month_name: string;
+  branch: string;
   toko: string;
   kode_besar: string;
+  kode_kecil: string;
+  size: string;
   article: string;
   gender: string;
   series: string;
@@ -33,8 +36,8 @@ interface MonthlyResponse {
   totals?: { pairs: number; revenue: number };
 }
 
-const HEADERS = ["Year", "Month Number", "Month Name", "Store", "Kode Besar", "Article", "Gender", "Series", "Color", "Tipe", "Tier", "Qty", "Revenue", "ASP"];
-const KEYS    = ["year", "month_num", "month_name", "toko", "kode_besar", "article", "gender", "series", "color", "tipe", "tier", "pairs", "revenue", "avg_price"];
+const HEADERS = ["Year", "Month Number", "Month Name", "Branch", "Store", "Kode Besar", "Kode Kecil", "Size", "Article", "Gender", "Series", "Color", "Tipe", "Tier", "Qty", "Revenue", "ASP"];
+const KEYS    = ["year", "month_num", "month_name", "branch", "toko", "kode_besar", "kode_kecil", "size", "article", "gender", "series", "color", "tipe", "tier", "pairs", "revenue", "avg_price"];
 
 function fmtRp(n: number) {
   return "Rp " + Math.round(n).toLocaleString("en-US");
