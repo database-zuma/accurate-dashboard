@@ -12,17 +12,21 @@ interface MonthlyRow {
   year: number;
   month_num: number;
   month_name: string;
-  toko: string;
+  branch: string;
+  area: string;
+  store_name: string;
   kode_besar: string;
-  article: string;
+  kode_kecil: string;
+  kode_mix: string;
+  kode_mix_size: string;
   gender: string;
   series: string;
   color: string;
-  tipe: string;
+  size: string;
   tier: string;
-  pairs: number;
+  tipe: string;
+  qty_sold: number;
   revenue: number;
-  avg_price: number;
 }
 
 interface MonthlyResponse {
@@ -33,8 +37,8 @@ interface MonthlyResponse {
   totals?: { pairs: number; revenue: number };
 }
 
-const HEADERS = ["Year", "Month Number", "Month Name", "Store", "Kode Besar", "Article", "Gender", "Series", "Color", "Tipe", "Tier", "Qty", "Revenue", "ASP"];
-const KEYS    = ["year", "month_num", "month_name", "toko", "kode_besar", "article", "gender", "series", "color", "tipe", "tier", "pairs", "revenue", "avg_price"];
+const HEADERS = ["Year", "Month No.", "Month Name", "Branch", "Area", "Store Name", "Kode Besar", "Kode Kecil", "Kode Mix", "Kode Mix Size", "Gender", "Series", "Color", "Size", "Tier", "Tipe", "Qty Sold", "Revenue"];
+const KEYS    = ["year", "month_num", "month_name", "branch", "area", "store_name", "kode_besar", "kode_kecil", "kode_mix", "kode_mix_size", "gender", "series", "color", "size", "tier", "tipe", "qty_sold", "revenue"];
 
 function fmtRp(n: number) {
   return "Rp " + Math.round(n).toLocaleString("en-US");
@@ -152,27 +156,31 @@ export default function DetailMonthlyTable() {
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-border bg-muted/30">
-                <Th col="year"       label="Year" />
-                <Th col="month_num"  label="Month No." />
-                <Th col="month_name" label="Month Name" />
-                <Th col="toko"       label="Store" />
-                <Th col="kode_besar" label="Kode Besar" />
-                <Th col="article"    label="Article" />
-                <Th col="gender"     label="Gender" />
-                <Th col="series"     label="Series" />
-                <Th col="color"      label="Color" />
-                <Th col="tipe"       label="Tipe" />
-                <Th col="tier"       label="Tier" />
-                <Th col="pairs"      label="Qty"     right />
-                <Th col="revenue"    label="Revenue" right />
-                <Th col="avg_price"  label="ASP"     right />
+                <Th col="year"          label="Year" />
+                <Th col="month_num"     label="Month No." />
+                <Th col="month_name"    label="Month Name" />
+                <Th col="branch"        label="Branch" />
+                <Th col="area"          label="Area" />
+                <Th col="store_name"    label="Store Name" />
+                <Th col="kode_besar"    label="Kode Besar" />
+                <Th col="kode_kecil"    label="Kode Kecil" />
+                <Th col="kode_mix"      label="Kode Mix" />
+                <Th col="kode_mix_size" label="Kode Mix Size" />
+                <Th col="gender"        label="Gender" />
+                <Th col="series"        label="Series" />
+                <Th col="color"         label="Color" />
+                <Th col="size"          label="Size" />
+                <Th col="tier"          label="Tier" />
+                <Th col="tipe"          label="Tipe" />
+                <Th col="qty_sold"      label="Qty Sold" right />
+                <Th col="revenue"       label="Revenue"  right />
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 Array.from({ length: 10 }, (_, idx) => (
                   <tr key={`skel-${String(idx)}`} className="border-b border-border/50">
-                    {Array.from({ length: 14 }, (_, cj) => (
+                    {Array.from({ length: 18 }, (_, cj) => (
                       <td key={`sc-${String(cj)}`} className="px-3 py-2.5">
                         <div className="h-3 bg-muted animate-pulse rounded-sm w-full" />
                       </td>
@@ -181,42 +189,42 @@ export default function DetailMonthlyTable() {
                 ))
               ) : (
                 data?.rows?.map((r, idx) => (
-                  <tr key={`${r.year}-${r.month_num}-${r.toko}-${r.kode_besar}-${String(idx)}`}
+                  <tr key={`${r.year}-${r.month_num}-${r.store_name}-${r.kode_besar}-${String(idx)}`}
                     className="border-b border-border/40 hover:bg-muted/20 transition-colors">
                     <td className="px-3 py-2.5 tabular-nums font-medium">{r.year}</td>
                     <td className="px-3 py-2.5 tabular-nums text-muted-foreground">{String(r.month_num).padStart(2, "0")}</td>
                     <td className="px-3 py-2.5 text-muted-foreground">{r.month_name}</td>
-                    <td className="px-3 py-2.5 font-medium max-w-[120px] truncate" title={r.toko}>{r.toko || "—"}</td>
+                    <td className="px-3 py-2.5 text-muted-foreground">{r.branch || "—"}</td>
+                    <td className="px-3 py-2.5 text-muted-foreground">{r.area || "—"}</td>
+                    <td className="px-3 py-2.5 font-medium max-w-[120px] truncate" title={r.store_name}>{r.store_name || "—"}</td>
                     <td className="px-3 py-2.5 font-mono text-[10px] font-medium max-w-[110px] truncate" title={r.kode_besar}>{r.kode_besar || "—"}</td>
-                    <td className="px-3 py-2.5 max-w-[160px] truncate" title={r.article}>{r.article || "—"}</td>
+                    <td className="px-3 py-2.5 font-mono text-[10px] max-w-[100px] truncate" title={r.kode_kecil}>{r.kode_kecil || "—"}</td>
+                    <td className="px-3 py-2.5 font-mono text-[10px] max-w-[110px] truncate" title={r.kode_mix}>{r.kode_mix || "—"}</td>
+                    <td className="px-3 py-2.5 font-mono text-[10px] max-w-[120px] truncate" title={r.kode_mix_size}>{r.kode_mix_size || "—"}</td>
                     <td className="px-3 py-2.5 text-muted-foreground">{r.gender || "—"}</td>
                     <td className="px-3 py-2.5 text-muted-foreground max-w-[100px] truncate" title={r.series}>{r.series || "—"}</td>
                     <td className="px-3 py-2.5 text-muted-foreground max-w-[90px] truncate" title={r.color}>{r.color || "—"}</td>
-                    <td className="px-3 py-2.5 text-muted-foreground">{r.tipe || "—"}</td>
+                    <td className="px-3 py-2.5 text-muted-foreground">{r.size || "—"}</td>
                     <td className="px-3 py-2.5 text-muted-foreground">{r.tier && r.tier !== "Unknown" ? `T${r.tier}` : r.tier || "—"}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{r.pairs.toLocaleString("en-US")}</td>
+                    <td className="px-3 py-2.5 text-muted-foreground">{r.tipe || "—"}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{r.qty_sold.toLocaleString("en-US")}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums">{fmtRp(r.revenue)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{fmtRp(r.avg_price)}</td>
                   </tr>
                 ))
               )}
               {!isLoading && !data?.rows?.length && (
-                <tr><td colSpan={14} className="px-3 py-8 text-center text-muted-foreground">No data</td></tr>
+                <tr><td colSpan={18} className="px-3 py-8 text-center text-muted-foreground">No data</td></tr>
               )}
             </tbody>
-            {!isLoading && data?.totals && data.totals.pairs > 0 && (() => {
-              const avgAsp = data.totals.revenue / data.totals.pairs;
-              return (
+            {!isLoading && data?.totals && data.totals.pairs > 0 && (
                 <tfoot>
                   <tr className="border-t-2 border-[#00E273]/40 bg-muted/40">
-                    <td className="px-3 py-2.5 text-[9px] font-bold text-foreground" colSpan={11}>TOTAL</td>
+                    <td className="px-3 py-2.5 text-[9px] font-bold text-foreground" colSpan={16}>TOTAL</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-xs font-bold text-foreground">{data.totals.pairs.toLocaleString("en-US")}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-xs font-bold text-foreground">{fmtRp(data.totals.revenue)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-xs font-bold text-muted-foreground">{fmtRp(avgAsp)}</td>
                   </tr>
                 </tfoot>
-              );
-            })()}
+            )}
           </table>
         </div>
       </div>
