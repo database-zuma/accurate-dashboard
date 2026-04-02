@@ -12,12 +12,11 @@ function parseMulti(sp: URLSearchParams, key: string): string[] {
 
 const ALLOWED_SORT = new Set([
   "year", "month_num", "month_name",
-  "branch", "toko", "kode_besar", "kode_kecil", "kode_mix", "size",
+  "branch", "area", "toko", "kode_besar", "kode_kecil", "kode_mix", "kode_mix_size", "size",
   "article", "gender", "series", "color", "tipe", "tier",
   "pairs", "revenue", "avg_price",
 ]);
 
-// Mirrors /api/detail kode_besar mode GROUP BY — adds year/month on top
 const GROUP_BY = `
   DATE_PART('year',  d.sale_date),
   DATE_PART('month', d.sale_date),
@@ -58,26 +57,63 @@ const SELECT_COLS = `
        THEN SUM(d.revenue) / SUM(d.pairs) ELSE 0 END        AS avg_price
 `;
 
-function mapRow(r: Record<string, unknown>) {
+// Post-processing: add area + kode_mix_size via separate lookups (cached)
+let areaCache: Record<string, string> | null = null;
+let kodemixSizeCache: Record<string, string> | null = null;
+
+async function getAreaMap(): Promise<Record<string, string>> {
+  if (areaCache) return areaCache;
+  const res = await pool.query(`
+    SELECT DISTINCT LOWER(matched_store_name) AS toko, area
+    FROM core.sales_with_product WHERE area IS NOT NULL AND area != ''
+  `);
+  areaCache = {};
+  for (const r of res.rows) {
+    areaCache[r.toko] = r.area;
+  }
+  // Clear cache after 5 minutes
+  setTimeout(() => { areaCache = null; }, 300000);
+  return areaCache;
+}
+
+async function getKodemixSizeMap(): Promise<Record<string, string>> {
+  if (kodemixSizeCache) return kodemixSizeCache;
+  const res = await pool.query(`
+    SELECT LOWER(kode_besar) AS kode_besar, kode_mix_size
+    FROM portal.kodemix WHERE kode_mix_size IS NOT NULL AND kode_mix_size != ''
+  `);
+  kodemixSizeCache = {};
+  for (const r of res.rows) {
+    kodemixSizeCache[r.kode_besar] = r.kode_mix_size;
+  }
+  setTimeout(() => { kodemixSizeCache = null; }, 300000);
+  return kodemixSizeCache;
+}
+
+function mapRow(r: Record<string, unknown>, areaMap: Record<string, string>, kmSizeMap: Record<string, string>) {
+  const toko = (r.toko as string || '').toLowerCase();
+  const kodeBesar = (r.kode_besar as string || '').toLowerCase();
   return {
-    year:       Number(r.year),
-    month_num:  Number(r.month_num),
-    month_name: r.month_name   as string,
-    branch:     r.branch       as string,
-    toko:       r.toko         as string,
-    kode_besar: r.kode_besar   as string,
-    kode_kecil: r.kode_kecil   as string,
-    kode_mix:   r.kode_mix     as string,
-    size:       r.size         as string,
-    article:    r.article      as string,
-    gender:     r.gender       as string,
-    series:     r.series       as string,
-    color:      r.color        as string,
-    tipe:       r.tipe         as string,
-    tier:       r.tier         as string,
-    pairs:      Number(r.pairs),
-    revenue:    Number(r.revenue),
-    avg_price:  Number(r.avg_price),
+    year:           Number(r.year),
+    month_num:      Number(r.month_num),
+    month_name:     r.month_name     as string,
+    branch:         r.branch         as string,
+    area:           areaMap[toko] || '',
+    toko:           r.toko           as string,
+    kode_besar:     r.kode_besar     as string,
+    kode_kecil:     r.kode_kecil     as string,
+    kode_mix:       r.kode_mix       as string,
+    kode_mix_size:  kmSizeMap[kodeBesar] || '',
+    size:           r.size           as string,
+    article:        r.article        as string,
+    gender:         r.gender         as string,
+    series:         r.series         as string,
+    color:          r.color          as string,
+    tipe:           r.tipe           as string,
+    tier:           r.tier           as string,
+    pairs:          Number(r.pairs),
+    revenue:        Number(r.revenue),
+    avg_price:      Number(r.avg_price),
   };
 }
 
@@ -111,6 +147,9 @@ export async function GET(req: NextRequest) {
     `${sort} ${dir} NULLS LAST`;
 
   try {
+    // Load lookup maps in parallel
+    const [areaMap, kmSizeMap] = await Promise.all([getAreaMap(), getKodemixSizeMap()]);
+
     const vals: unknown[] = [];
     const conds: string[] = [];
     let i = 1;
@@ -120,7 +159,6 @@ export async function GET(req: NextRequest) {
     if (from) { conds.push(`d.sale_date >= $${i++}`); vals.push(from); }
     if (to)   { conds.push(`d.sale_date <= $${i++}`); vals.push(to); }
 
-    // Mirrors filter loop in /api/detail exactly
     for (const [param, col] of [
       ["branch",   "d.branch"],
       ["store",    "d.toko"],
@@ -140,7 +178,6 @@ export async function GET(req: NextRequest) {
       vals.push(...fv);
     }
 
-    // Color — mirrors /api/detail
     const colorFv = parseMulti(sp, "color");
     if (colorFv.length) {
       const phs = colorFv.map(() => `$${i++}`).join(", ");
@@ -162,7 +199,7 @@ export async function GET(req: NextRequest) {
     if (isExport) {
       const sql = `SELECT ${SELECT_COLS} FROM mart.mv_accurate_summary d ${where} GROUP BY ${GROUP_BY} ORDER BY ${orderBy}`;
       const res  = await pool.query(sql, vals);
-      return NextResponse.json({ rows: res.rows.map(mapRow) }, { headers: { "Cache-Control": "no-store" } });
+      return NextResponse.json({ rows: res.rows.map(r => mapRow(r, areaMap, kmSizeMap)) }, { headers: { "Cache-Control": "no-store" } });
     }
 
     const countSql = `
@@ -196,7 +233,7 @@ export async function GET(req: NextRequest) {
     const totalRevenue = Number(countRow.total_revenue);
 
     return NextResponse.json({
-      rows:   dataRes.rows.map(mapRow),
+      rows:   dataRes.rows.map(r => mapRow(r, areaMap, kmSizeMap)),
       total,
       page,
       pages:  Math.ceil(total / limit),
