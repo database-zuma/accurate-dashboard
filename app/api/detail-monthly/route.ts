@@ -119,7 +119,7 @@ export async function GET(req: NextRequest) {
 
     if (isExport) {
       // Direct SELECT without GROUP BY — MV is pre-aggregated
-      const sql = `SELECT year, month_num, month_name, branch, area, store_name, kode_besar, kode_kecil, kode_mix, kode_mix_size, gender, series, color, size, tier, tipe, qty_sold, revenue FROM public.mv_detail_monthly ${where} ORDER BY year DESC, month_num DESC, store_name, kode_besar LIMIT 500000`;
+      const sql = `SELECT year, month_num, month_name, branch, area, store_name, kode_besar, kode_kecil, kode_mix, kode_mix_size, gender, series, color, size, tier, tipe, qty_sold, revenue FROM public.mv_detail_monthly ${where} ORDER BY year DESC, month_num DESC, store_name, kode_besar`;
       const res = await pool.query(sql, vals);
       return NextResponse.json({ rows: res.rows.map(mapRow) }, { headers: { "Cache-Control": "no-store" } });
     }
