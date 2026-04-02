@@ -12,7 +12,7 @@ function parseMulti(sp: URLSearchParams, key: string): string[] {
 
 const ALLOWED_SORT = new Set([
   "year", "month_num", "month_name",
-  "branch", "toko", "kode_besar", "kode_kecil", "size",
+  "branch", "toko", "kode_besar", "kode_kecil", "kode_mix", "size",
   "article", "gender", "series", "color", "tipe", "tier",
   "pairs", "revenue", "avg_price",
 ]);
@@ -26,6 +26,7 @@ const GROUP_BY = `
   d.toko,
   d.kode_besar,
   COALESCE(d.kode, ''),
+  COALESCE(d.kode_mix, ''),
   COALESCE(d.size, ''),
   d.article,
   COALESCE(NULLIF(d.kodemix_gender, ''), 'Unknown'),
@@ -43,6 +44,7 @@ const SELECT_COLS = `
   d.toko,
   d.kode_besar,
   COALESCE(d.kode, '')                                      AS kode_kecil,
+  COALESCE(d.kode_mix, '')                                  AS kode_mix,
   COALESCE(d.size, '')                                      AS size,
   d.article,
   COALESCE(NULLIF(d.kodemix_gender, ''), 'Unknown')         AS gender,
@@ -65,6 +67,7 @@ function mapRow(r: Record<string, unknown>) {
     toko:       r.toko         as string,
     kode_besar: r.kode_besar   as string,
     kode_kecil: r.kode_kecil   as string,
+    kode_mix:   r.kode_mix     as string,
     size:       r.size         as string,
     article:    r.article      as string,
     gender:     r.gender       as string,
@@ -97,6 +100,7 @@ export async function GET(req: NextRequest) {
     sort === "toko"       ? `d.toko ${dir}` :
     sort === "kode_besar" ? `d.kode_besar ${dir}` :
     sort === "kode_kecil" ? `COALESCE(d.kode, '') ${dir}` :
+    sort === "kode_mix"   ? `COALESCE(d.kode_mix, '') ${dir}` :
     sort === "size"       ? `COALESCE(d.size, '') ${dir}` :
     sort === "article"    ? `d.article ${dir}` :
     sort === "gender"     ? `COALESCE(NULLIF(d.kodemix_gender, ''), 'Unknown') ${dir}` :
