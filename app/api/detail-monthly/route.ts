@@ -12,21 +12,18 @@ function parseMulti(sp: URLSearchParams, key: string): string[] {
 
 const ALLOWED_SORT = new Set([
   "year", "month_num", "month_name",
-  "branch", "area", "toko", "kode_besar", "kode_kecil", "kode_mix", "kode_mix_size", "size",
-  "article", "gender", "series", "color", "tipe", "tier",
+  "toko", "kode_besar", "article",
+  "gender", "series", "color", "tipe", "tier",
   "pairs", "revenue", "avg_price",
 ]);
 
+// Mirrors /api/detail kode_besar mode GROUP BY — adds year/month on top
 const GROUP_BY = `
   DATE_PART('year',  d.sale_date),
   DATE_PART('month', d.sale_date),
   TRIM(TO_CHAR(d.sale_date, 'Month')),
-  COALESCE(d.branch, 'Unknown'),
   d.toko,
   d.kode_besar,
-  COALESCE(d.kode, ''),
-  COALESCE(d.kode_mix, ''),
-  COALESCE(d.size, ''),
   d.article,
   COALESCE(NULLIF(d.kodemix_gender, ''), 'Unknown'),
   COALESCE(NULLIF(d.kodemix_series, ''), 'Unknown'),
@@ -39,12 +36,8 @@ const SELECT_COLS = `
   DATE_PART('year',  d.sale_date)::int                      AS year,
   DATE_PART('month', d.sale_date)::int                      AS month_num,
   TRIM(TO_CHAR(d.sale_date, 'Month'))                       AS month_name,
-  COALESCE(d.branch, 'Unknown')                             AS branch,
   d.toko,
   d.kode_besar,
-  COALESCE(d.kode, '')                                      AS kode_kecil,
-  COALESCE(d.kode_mix, '')                                  AS kode_mix,
-  COALESCE(d.size, '')                                      AS size,
   d.article,
   COALESCE(NULLIF(d.kodemix_gender, ''), 'Unknown')         AS gender,
   COALESCE(NULLIF(d.kodemix_series, ''), 'Unknown')         AS series,
@@ -57,66 +50,19 @@ const SELECT_COLS = `
        THEN SUM(d.revenue) / SUM(d.pairs) ELSE 0 END        AS avg_price
 `;
 
-// Lightweight area + kode_mix_size lookup (post-query, using small portal tables only)
-async function enrichRows(rows: Record<string, unknown>[]): Promise<Record<string, unknown>[]> {
-  if (!rows.length) return rows;
-
-  // Get unique toko values for area lookup
-  const tokos = [...new Set(rows.map(r => (r.toko as string || '').toLowerCase()))];
-  const kodeBesars = [...new Set(rows.map(r => (r.kode_besar as string || '').toLowerCase()))];
-
-  // Batch lookup area from a lightweight portal table or branch mapping
-  let areaMap: Record<string, string> = {};
-  try {
-    const areaRes = await pool.query(`
-      SELECT LOWER(store_name) AS toko, area
-      FROM (
-        SELECT DISTINCT matched_store_name AS store_name, area
-        FROM core.sales_with_product
-        WHERE matched_store_name IS NOT NULL AND area IS NOT NULL AND area != ''
-        AND LOWER(matched_store_name) = ANY($1)
-      ) sub
-    `, [tokos]);
-    for (const r of areaRes.rows) areaMap[r.toko] = r.area;
-  } catch { /* skip area if fails */ }
-
-  // Batch lookup kode_mix_size from portal.kodemix
-  let kmSizeMap: Record<string, string> = {};
-  try {
-    const kmRes = await pool.query(`
-      SELECT LOWER(kode_besar) AS kb, kode_mix_size
-      FROM portal.kodemix
-      WHERE LOWER(kode_besar) = ANY($1) AND kode_mix_size IS NOT NULL AND kode_mix_size != ''
-    `, [kodeBesars]);
-    for (const r of kmRes.rows) kmSizeMap[r.kb] = r.kode_mix_size;
-  } catch { /* skip kode_mix_size if fails */ }
-
-  return rows.map(r => ({
-    ...mapRow(r),
-    area: areaMap[(r.toko as string || '').toLowerCase()] || '',
-    kode_mix_size: kmSizeMap[(r.kode_besar as string || '').toLowerCase()] || '',
-  }));
-}
-
 function mapRow(r: Record<string, unknown>) {
   return {
     year:       Number(r.year),
     month_num:  Number(r.month_num),
-    month_name: r.month_name     as string,
-    branch:     r.branch         as string,
-    area:       '',
-    toko:       r.toko           as string,
-    kode_besar: r.kode_besar     as string,
-    kode_kecil: r.kode_kecil     as string,
-    kode_mix:   r.kode_mix       as string,
-    kode_mix_size: '',
-    size:       r.size           as string,
-    article:    r.article        as string,
-    gender:     r.gender         as string,
-    series:     r.series         as string,
-    color:      r.color          as string,
-    tipe:       r.tipe           as string,
-    tier:       r.tier           as string,
+    month_name: r.month_name  as string,
+    toko:       r.toko        as string,
+    kode_besar: r.kode_besar  as string,
+    article:    r.article     as string,
+    gender:     r.gender      as string,
+    series:     r.series      as string,
+    color:      r.color       as string,
+    tipe:       r.tipe        as string,
+    tier:       r.tier        as string,
     pairs:      Number(r.pairs),
     revenue:    Number(r.revenue),
     avg_price:  Number(r.avg_price),
@@ -138,12 +84,8 @@ export async function GET(req: NextRequest) {
     sort === "year"       ? `year ${dir}, month_num DESC` :
     sort === "month_num"  ? `month_num ${dir}, year DESC` :
     sort === "month_name" ? `month_name ${dir}` :
-    sort === "branch"     ? `COALESCE(d.branch, 'Unknown') ${dir}` :
     sort === "toko"       ? `d.toko ${dir}` :
     sort === "kode_besar" ? `d.kode_besar ${dir}` :
-    sort === "kode_kecil" ? `COALESCE(d.kode, '') ${dir}` :
-    sort === "kode_mix"   ? `COALESCE(d.kode_mix, '') ${dir}` :
-    sort === "size"       ? `COALESCE(d.size, '') ${dir}` :
     sort === "article"    ? `d.article ${dir}` :
     sort === "gender"     ? `COALESCE(NULLIF(d.kodemix_gender, ''), 'Unknown') ${dir}` :
     sort === "series"     ? `COALESCE(NULLIF(d.kodemix_series, ''), 'Unknown') ${dir}` :
@@ -162,6 +104,7 @@ export async function GET(req: NextRequest) {
     if (from) { conds.push(`d.sale_date >= $${i++}`); vals.push(from); }
     if (to)   { conds.push(`d.sale_date <= $${i++}`); vals.push(to); }
 
+    // Mirrors filter loop in /api/detail exactly
     for (const [param, col] of [
       ["branch",   "d.branch"],
       ["store",    "d.toko"],
@@ -181,6 +124,7 @@ export async function GET(req: NextRequest) {
       vals.push(...fv);
     }
 
+    // Color — mirrors /api/detail
     const colorFv = parseMulti(sp, "color");
     if (colorFv.length) {
       const phs = colorFv.map(() => `$${i++}`).join(", ");
@@ -202,8 +146,7 @@ export async function GET(req: NextRequest) {
     if (isExport) {
       const sql = `SELECT ${SELECT_COLS} FROM mart.mv_accurate_summary d ${where} GROUP BY ${GROUP_BY} ORDER BY ${orderBy}`;
       const res  = await pool.query(sql, vals);
-      const enriched = await enrichRows(res.rows);
-      return NextResponse.json({ rows: enriched }, { headers: { "Cache-Control": "no-store" } });
+      return NextResponse.json({ rows: res.rows.map(mapRow) }, { headers: { "Cache-Control": "no-store" } });
     }
 
     const countSql = `
@@ -236,10 +179,8 @@ export async function GET(req: NextRequest) {
     const totalPairs   = Number(countRow.total_pairs);
     const totalRevenue = Number(countRow.total_revenue);
 
-    const enriched = await enrichRows(dataRes.rows);
-
     return NextResponse.json({
-      rows:   enriched,
+      rows:   dataRes.rows.map(mapRow),
       total,
       page,
       pages:  Math.ceil(total / limit),
