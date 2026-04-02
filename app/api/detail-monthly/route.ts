@@ -57,63 +57,69 @@ const SELECT_COLS = `
        THEN SUM(d.revenue) / SUM(d.pairs) ELSE 0 END        AS avg_price
 `;
 
-// Post-processing: add area + kode_mix_size via separate lookups (cached)
-let areaCache: Record<string, string> | null = null;
-let kodemixSizeCache: Record<string, string> | null = null;
+// Lightweight area + kode_mix_size lookup (post-query, using small portal tables only)
+async function enrichRows(rows: Record<string, unknown>[]): Promise<Record<string, unknown>[]> {
+  if (!rows.length) return rows;
 
-async function getAreaMap(): Promise<Record<string, string>> {
-  if (areaCache) return areaCache;
-  const res = await pool.query(`
-    SELECT DISTINCT LOWER(matched_store_name) AS toko, area
-    FROM core.sales_with_product WHERE area IS NOT NULL AND area != ''
-  `);
-  areaCache = {};
-  for (const r of res.rows) {
-    areaCache[r.toko] = r.area;
-  }
-  // Clear cache after 5 minutes
-  setTimeout(() => { areaCache = null; }, 300000);
-  return areaCache;
+  // Get unique toko values for area lookup
+  const tokos = [...new Set(rows.map(r => (r.toko as string || '').toLowerCase()))];
+  const kodeBesars = [...new Set(rows.map(r => (r.kode_besar as string || '').toLowerCase()))];
+
+  // Batch lookup area from a lightweight portal table or branch mapping
+  let areaMap: Record<string, string> = {};
+  try {
+    const areaRes = await pool.query(`
+      SELECT LOWER(store_name) AS toko, area
+      FROM (
+        SELECT DISTINCT matched_store_name AS store_name, area
+        FROM core.sales_with_product
+        WHERE matched_store_name IS NOT NULL AND area IS NOT NULL AND area != ''
+        AND LOWER(matched_store_name) = ANY($1)
+      ) sub
+    `, [tokos]);
+    for (const r of areaRes.rows) areaMap[r.toko] = r.area;
+  } catch { /* skip area if fails */ }
+
+  // Batch lookup kode_mix_size from portal.kodemix
+  let kmSizeMap: Record<string, string> = {};
+  try {
+    const kmRes = await pool.query(`
+      SELECT LOWER(kode_besar) AS kb, kode_mix_size
+      FROM portal.kodemix
+      WHERE LOWER(kode_besar) = ANY($1) AND kode_mix_size IS NOT NULL AND kode_mix_size != ''
+    `, [kodeBesars]);
+    for (const r of kmRes.rows) kmSizeMap[r.kb] = r.kode_mix_size;
+  } catch { /* skip kode_mix_size if fails */ }
+
+  return rows.map(r => ({
+    ...mapRow(r),
+    area: areaMap[(r.toko as string || '').toLowerCase()] || '',
+    kode_mix_size: kmSizeMap[(r.kode_besar as string || '').toLowerCase()] || '',
+  }));
 }
 
-async function getKodemixSizeMap(): Promise<Record<string, string>> {
-  if (kodemixSizeCache) return kodemixSizeCache;
-  const res = await pool.query(`
-    SELECT LOWER(kode_besar) AS kode_besar, kode_mix_size
-    FROM portal.kodemix WHERE kode_mix_size IS NOT NULL AND kode_mix_size != ''
-  `);
-  kodemixSizeCache = {};
-  for (const r of res.rows) {
-    kodemixSizeCache[r.kode_besar] = r.kode_mix_size;
-  }
-  setTimeout(() => { kodemixSizeCache = null; }, 300000);
-  return kodemixSizeCache;
-}
-
-function mapRow(r: Record<string, unknown>, areaMap: Record<string, string>, kmSizeMap: Record<string, string>) {
-  const toko = (r.toko as string || '').toLowerCase();
-  const kodeBesar = (r.kode_besar as string || '').toLowerCase();
+function mapRow(r: Record<string, unknown>) {
   return {
-    year:           Number(r.year),
-    month_num:      Number(r.month_num),
-    month_name:     r.month_name     as string,
-    branch:         r.branch         as string,
-    area:           areaMap[toko] || '',
-    toko:           r.toko           as string,
-    kode_besar:     r.kode_besar     as string,
-    kode_kecil:     r.kode_kecil     as string,
-    kode_mix:       r.kode_mix       as string,
-    kode_mix_size:  kmSizeMap[kodeBesar] || '',
-    size:           r.size           as string,
-    article:        r.article        as string,
-    gender:         r.gender         as string,
-    series:         r.series         as string,
-    color:          r.color          as string,
-    tipe:           r.tipe           as string,
-    tier:           r.tier           as string,
-    pairs:          Number(r.pairs),
-    revenue:        Number(r.revenue),
-    avg_price:      Number(r.avg_price),
+    year:       Number(r.year),
+    month_num:  Number(r.month_num),
+    month_name: r.month_name     as string,
+    branch:     r.branch         as string,
+    area:       '',
+    toko:       r.toko           as string,
+    kode_besar: r.kode_besar     as string,
+    kode_kecil: r.kode_kecil     as string,
+    kode_mix:   r.kode_mix       as string,
+    kode_mix_size: '',
+    size:       r.size           as string,
+    article:    r.article        as string,
+    gender:     r.gender         as string,
+    series:     r.series         as string,
+    color:      r.color          as string,
+    tipe:       r.tipe           as string,
+    tier:       r.tier           as string,
+    pairs:      Number(r.pairs),
+    revenue:    Number(r.revenue),
+    avg_price:  Number(r.avg_price),
   };
 }
 
@@ -147,9 +153,6 @@ export async function GET(req: NextRequest) {
     `${sort} ${dir} NULLS LAST`;
 
   try {
-    // Load lookup maps in parallel
-    const [areaMap, kmSizeMap] = await Promise.all([getAreaMap(), getKodemixSizeMap()]);
-
     const vals: unknown[] = [];
     const conds: string[] = [];
     let i = 1;
@@ -199,7 +202,8 @@ export async function GET(req: NextRequest) {
     if (isExport) {
       const sql = `SELECT ${SELECT_COLS} FROM mart.mv_accurate_summary d ${where} GROUP BY ${GROUP_BY} ORDER BY ${orderBy}`;
       const res  = await pool.query(sql, vals);
-      return NextResponse.json({ rows: res.rows.map(r => mapRow(r, areaMap, kmSizeMap)) }, { headers: { "Cache-Control": "no-store" } });
+      const enriched = await enrichRows(res.rows);
+      return NextResponse.json({ rows: enriched }, { headers: { "Cache-Control": "no-store" } });
     }
 
     const countSql = `
@@ -232,8 +236,10 @@ export async function GET(req: NextRequest) {
     const totalPairs   = Number(countRow.total_pairs);
     const totalRevenue = Number(countRow.total_revenue);
 
+    const enriched = await enrichRows(dataRes.rows);
+
     return NextResponse.json({
-      rows:   dataRes.rows.map(r => mapRow(r, areaMap, kmSizeMap)),
+      rows:   enriched,
       total,
       page,
       pages:  Math.ceil(total / limit),
