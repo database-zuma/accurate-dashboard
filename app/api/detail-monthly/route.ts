@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 function parseMulti(sp: URLSearchParams, key: string): string[] {
   const val = sp.get(key);
@@ -118,7 +118,8 @@ export async function GET(req: NextRequest) {
     const groupBy = `GROUP BY year, month_num, month_name, branch, area, store_name, kode_besar, kode_kecil, kode_mix, kode_mix_size, gender, series, color, size, tier, tipe`;
 
     if (isExport) {
-      const sql = `SELECT ${SELECT_COLS} FROM public.mv_detail_monthly ${where} ${groupBy} ORDER BY ${orderBy}`;
+      // Direct SELECT without GROUP BY — MV is pre-aggregated
+      const sql = `SELECT year, month_num, month_name, branch, area, store_name, kode_besar, kode_kecil, kode_mix, kode_mix_size, gender, series, color, size, tier, tipe, qty_sold, revenue FROM public.mv_detail_monthly ${where} ORDER BY year DESC, month_num DESC, store_name, kode_besar LIMIT 500000`;
       const res = await pool.query(sql, vals);
       return NextResponse.json({ rows: res.rows.map(mapRow) }, { headers: { "Cache-Control": "no-store" } });
     }
