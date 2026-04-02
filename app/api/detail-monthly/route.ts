@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
+import * as XLSX from "xlsx";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -118,9 +119,39 @@ export async function GET(req: NextRequest) {
     const groupBy = `GROUP BY year, month_num, month_name, branch, area, store_name, kode_besar, kode_kecil, kode_mix, kode_mix_size, gender, series, color, size, tier, tipe`;
 
     if (isExport) {
-      // Direct SELECT without GROUP BY — MV is pre-aggregated
+      const exportFormat = sp.get("format") || "json";
       const sql = `SELECT year, month_num, month_name, branch, area, store_name, kode_besar, kode_kecil, kode_mix, kode_mix_size, gender, series, color, size, tier, tipe, qty_sold, revenue FROM public.mv_detail_monthly ${where} ORDER BY year DESC, month_num DESC, store_name, kode_besar`;
       const res = await pool.query(sql, vals);
+
+      if (exportFormat === "xlsx") {
+        const headers = ["Year", "Month No.", "Month Name", "Branch", "Area", "Store Name", "Kode Besar", "Kode Kecil", "Kode Mix", "Kode Mix Size", "Gender", "Series", "Color", "Size", "Tier", "Tipe", "Qty Sold", "Revenue"];
+        const wsData = [headers, ...res.rows.map(r => [r.year, r.month_num, r.month_name, r.branch, r.area, r.store_name, r.kode_besar, r.kode_kecil, r.kode_mix, r.kode_mix_size, r.gender, r.series, r.color, r.size, r.tier, r.tipe, Number(r.qty_sold), Number(r.revenue)])];
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Data");
+        const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+        return new Response(buf, {
+          headers: {
+            "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "Content-Disposition": `attachment; filename="detail-monthly.xlsx"`,
+            "Cache-Control": "no-store",
+          },
+        });
+      }
+
+      if (exportFormat === "csv") {
+        const headers = "Year,Month No.,Month Name,Branch,Area,Store Name,Kode Besar,Kode Kecil,Kode Mix,Kode Mix Size,Gender,Series,Color,Size,Tier,Tipe,Qty Sold,Revenue";
+        const csvRows = res.rows.map(r => `${r.year},${r.month_num},"${r.month_name}","${r.branch}","${r.area}","${r.store_name}","${r.kode_besar}","${r.kode_kecil}","${r.kode_mix}","${r.kode_mix_size}","${r.gender}","${r.series}","${r.color}","${r.size}","${r.tier}","${r.tipe}",${r.qty_sold},${r.revenue}`);
+        const csv = "\uFEFF" + headers + "\r\n" + csvRows.join("\r\n");
+        return new Response(csv, {
+          headers: {
+            "Content-Type": "text/csv; charset=utf-8",
+            "Content-Disposition": `attachment; filename="detail-monthly.csv"`,
+            "Cache-Control": "no-store",
+          },
+        });
+      }
+
       return NextResponse.json({ rows: res.rows.map(mapRow) }, { headers: { "Cache-Control": "no-store" } });
     }
 

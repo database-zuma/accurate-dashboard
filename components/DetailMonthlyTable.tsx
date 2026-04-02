@@ -105,12 +105,19 @@ export default function DetailMonthlyTable() {
     try {
       const params = new URLSearchParams(detailParams.toString());
       params.set("export", "all");
-      const res  = await fetch(`/api/detail-monthly?${params}`);
-      const json = await res.json();
-      if (!json.rows || !Array.isArray(json.rows)) throw new Error("Export failed");
-      const rows = json.rows as Record<string, unknown>[];
-      if (format === "csv") downloadCSV(toCSV(HEADERS, rows, KEYS), "detail-monthly.csv");
-      else await downloadXLSX(HEADERS, rows, KEYS, "detail-monthly.xlsx");
+      params.set("format", format);
+      const res = await fetch(`/api/detail-monthly?${params}`);
+      if (!res.ok) throw new Error(`Export failed (${res.status})`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `detail-monthly.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+      alert(`✅ Download berhasil: detail-monthly.${format}`);
+    } catch (e) {
+      alert(`❌ Download gagal: ${e instanceof Error ? e.message : "Unknown error"}. Coba filter date range lebih kecil.`);
     } finally { setExporting(false); }
   }, [detailParams]);
 
