@@ -19,9 +19,10 @@ interface FilterOptions {
   versions: string[];
   entities: string[];
   customers: string[];
+  mgDisney: string[];
 }
 
-const FILTER_KEYS = ["from", "to", "branch", "entity", "channel", "customer", "store", "gender", "series", "color", "tier", "tipe", "version", "q", "excludeNonSku"] as const;
+const FILTER_KEYS = ["from", "to", "branch", "entity", "channel", "customer", "store", "gender", "series", "color", "tier", "tipe", "version", "mgDisney", "q", "excludeNonSku"] as const;
 
 function MultiSelect({
   label,
@@ -342,6 +343,9 @@ export default function FilterBar() {
       <div className="flex gap-1.5 items-center w-full">
         <div className="flex-1">
           <MultiSelect label="CHANNEL" paramKey="channel" options={opts?.channels || []} />
+        </div>
+        <div className="flex-1">
+          <MultiSelect label="MG DISNEY" paramKey="mgDisney" options={opts?.mgDisney || []} />
         </div>
         <button
           type="button"

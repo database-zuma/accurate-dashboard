@@ -11,6 +11,33 @@ function parseMulti(sp: URLSearchParams, key: string): string[] {
   return val.split(",").map((v) => v.trim()).filter(Boolean);
 }
 
+function buildMgDisneyClause(
+  sp: URLSearchParams,
+  vals: unknown[],
+  startIdx: number,
+  prefix = "d"
+): { conds: string[]; nextIdx: number } {
+  const fv = parseMulti(sp, "mgDisney");
+  if (!fv.length) return { conds: [], nextIdx: startIdx };
+  let i = startIdx;
+  const mapped = fv.filter((v) => v !== "(unmapped)");
+  const includeUnmapped = fv.includes("(unmapped)");
+  const orParts: string[] = [];
+  if (mapped.length) {
+    const phs = mapped.map(() => `$${i++}`).join(", ");
+    vals.push(...mapped);
+    orParts.push(
+      `${prefix}.kode_mix IN (SELECT km.kode_mix FROM portal.kodemix km JOIN portal.hpprsp h ON h.kode = km.kode WHERE h.mg_disney IN (${phs}))`
+    );
+  }
+  if (includeUnmapped) {
+    orParts.push(
+      `${prefix}.kode_mix NOT IN (SELECT km.kode_mix FROM portal.kodemix km JOIN portal.hpprsp h ON h.kode = km.kode WHERE h.mg_disney IS NOT NULL AND h.mg_disney <> '')`
+    );
+  }
+  return { conds: [`(${orParts.join(" OR ")})`], nextIdx: i };
+}
+
 function buildMvFilters(
   sp: URLSearchParams,
   vals: unknown[],
@@ -56,6 +83,10 @@ function buildMvFilters(
     vals.push(`%${q}%`);
     i++;
   }
+
+  const mg = buildMgDisneyClause(sp, vals, i, prefix);
+  conds.push(...mg.conds);
+  i = mg.nextIdx;
 
   return { conds, nextIdx: i };
 }
@@ -184,6 +215,10 @@ export async function GET(req: NextRequest) {
       storeVals.push(`%${q}%`);
       si++;
     }
+
+    const mgStore = buildMgDisneyClause(sp, storeVals, si, "d");
+    storeD.push(...mgStore.conds);
+    si = mgStore.nextIdx;
 
     const storeDWhere = storeD.length ? `WHERE ${storeD.join(" AND ")}` : "";
     const storeTWhere = storeT.length ? `WHERE ${storeT.join(" AND ")}` : "";

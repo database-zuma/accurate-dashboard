@@ -84,8 +84,15 @@ export async function GET(req: NextRequest) {
       })
     );
 
+    const mgRes = await pool.query(
+      `SELECT COALESCE(NULLIF(mg_disney, ''), '(unmapped)') AS val
+       FROM portal.hpprsp GROUP BY 1 ORDER BY 1`
+    );
+    const mgValues = mgRes.rows.map((r: Record<string, unknown>) => r.val as string);
+
     const body: Record<string, unknown[]> = {};
     for (const r of results) body[r.key] = r.values;
+    body.mgDisney = mgValues;
 
     return NextResponse.json(body, {
       headers: { "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=3600" },

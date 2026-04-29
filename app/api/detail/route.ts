@@ -83,6 +83,22 @@ export async function GET(req: NextRequest) {
       i++;
     }
 
+    const mgFv = parseMulti(sp, "mgDisney");
+    if (mgFv.length) {
+      const mappedMg = mgFv.filter((v) => v !== "(unmapped)");
+      const includeUnmapped = mgFv.includes("(unmapped)");
+      const orParts: string[] = [];
+      if (mappedMg.length) {
+        const phs = mappedMg.map(() => `$${i++}`).join(", ");
+        vals.push(...mappedMg);
+        orParts.push(`d.kode_mix IN (SELECT km.kode_mix FROM portal.kodemix km JOIN portal.hpprsp h ON h.kode = km.kode WHERE h.mg_disney IN (${phs}))`);
+      }
+      if (includeUnmapped) {
+        orParts.push(`d.kode_mix NOT IN (SELECT km.kode_mix FROM portal.kodemix km JOIN portal.hpprsp h ON h.kode = km.kode WHERE h.mg_disney IS NOT NULL AND h.mg_disney <> '')`);
+      }
+      conds.push(`(${orParts.join(" OR ")})`);
+    }
+
     const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
 
     let groupBy: string;
